@@ -10,7 +10,6 @@ from models import db, init_login_manager
 from utils import initialize_database
 from routes import register_blueprints
 from scheduler import init_scheduler
-from routes.prediction_service import load_model
 
 logger = logging.getLogger(__name__)
 
@@ -124,12 +123,6 @@ def create_app():
         logger.info('[App] APScheduler initialized successfully. Scheduled jobs: daily_log_reminder (19:00), weekly_summary (Sun 18:00), profile_refresh_reminder (1st day 09:00)')
     except Exception as exc:
         logger.error('[App] Scheduler initialization failed: %s', exc, exc_info=True)
-
-    # Load Hugging Face model artifacts lazily at startup, but do not crash app if unavailable
-    try:
-        load_model()
-    except Exception as exc:
-        logger.warning('[App] Model loading failed during startup: %s', exc, exc_info=True)
 
     return app
 
