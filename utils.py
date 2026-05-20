@@ -9,6 +9,17 @@ from models import db, User, PatientProfile, Admin, LoginAudit, encrypt_sensitiv
 from config import Config
 
 
+def _database_dialect_name():
+    try:
+        return db.engine.dialect.name
+    except Exception:
+        return None
+
+
+def _is_mysql():
+    return _database_dialect_name() == 'mysql'
+
+
 def generate_otp():
     """Generate a 6-digit OTP"""
     return ''.join(random.choices(string.digits, k=6))
@@ -68,7 +79,7 @@ def ensure_lockout_columns():
     try:
         with db.engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS login_attempts INT NOT NULL DEFAULT 0"))
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS lockout_until DATETIME NULL"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS lockout_until TIMESTAMP NULL"))
     except Exception as e:
         print(f"Error adding lockout columns: {e}")
 
@@ -79,8 +90,8 @@ def ensure_otp_columns():
         with db.engine.begin() as conn:
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS otp VARCHAR(6) NULL"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_confirmed BOOLEAN NOT NULL DEFAULT FALSE"))
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS confirmed_at DATETIME NULL"))
-            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_sent_at DATETIME NULL"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMP NULL"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_sent_at TIMESTAMP NULL"))
     except Exception as e:
         print(f"Error adding OTP columns: {e}")
 
@@ -101,6 +112,9 @@ def ensure_profile_columns():
 
 def upgrade_encrypted_text_columns():
     """Widen sensitive text columns so encrypted values fit safely."""
+    if not _is_mysql():
+        return
+
     try:
         with db.engine.begin() as conn:
             conn.execute(text("ALTER TABLE users MODIFY full_name TEXT NOT NULL"))
@@ -236,7 +250,7 @@ def ensure_meal_columns():
     """Add diet_score column to meal_entries if it doesn't exist"""
     try:
         with db.engine.begin() as conn:
-            conn.execute(text("ALTER TABLE meal_entries ADD COLUMN IF NOT EXISTS diet_score INT NULL AFTER food_items"))
+            conn.execute(text("ALTER TABLE meal_entries ADD COLUMN IF NOT EXISTS diet_score INTEGER NULL"))
     except Exception as e:
         print(f"Error adding meal columns: {e}")
 
@@ -385,6 +399,18 @@ def column_exists(table_name, column_name):
         return False
 
 
+def auth_tables_ready():
+    """Check whether the core auth tables exist before login queries run."""
+    try:
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        existing_tables = set(inspector.get_table_names())
+        return {'users', 'admins'}.issubset(existing_tables)
+    except Exception as e:
+        print(f"Warning: Could not verify auth tables: {e}")
+        return False
+
+
 def cleanup_admin_profiles():
     """Remove patient profiles for admin users (shouldn't exist after migration)"""
     try:
@@ -449,4 +475,15 @@ def initialize_database(app):
         drop_old_profile_columns()  # Drop old columns after migration
         cleanup_admin_profiles()  # Clean up any remaining admin profiles
         ensure_admin_user()  # Ensure the default admin exists
+
+        required_tables = {'users', 'admins'}
+        try:
+            from sqlalchemy import inspect
+            existing_tables = set(inspect(db.engine).get_table_names())
+            missing_tables = sorted(required_tables - existing_tables)
+            if missing_tables:
+                print(f"Warning: Missing required auth tables after initialization: {', '.join(missing_tables)}")
+        except Exception as e:
+            print(f"Warning: Could not verify required auth tables: {e}")
+
         print("✓ Database initialized")

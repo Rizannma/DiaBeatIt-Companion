@@ -6,22 +6,26 @@ load_dotenv()
 
 
 def _build_database_uri():
+    database_url = os.environ.get('DATABASE_URL')
     db_host = os.environ.get('DB_HOST')
     db_user = os.environ.get('DB_USER')
     db_password = os.environ.get('DB_PASSWORD')
     db_name = os.environ.get('DB_NAME')
     db_port = os.environ.get('DB_PORT', '5432')
-    database_url = os.environ.get('DATABASE_URL')
+
+    if database_url:
+        if database_url.startswith('postgres://'):
+            return database_url.replace('postgres://', 'postgresql+psycopg2://', 1)
+        if database_url.startswith('postgresql://'):
+            return database_url.replace('postgresql://', 'postgresql+psycopg2://', 1)
+        return database_url
 
     if db_host and db_user and db_password and db_name:
         return f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
-    if database_url:
-        return database_url
-
     raise RuntimeError(
-        'Database configuration is incomplete. In production, set DB_HOST, DB_USER, '
-        'DB_PASSWORD, DB_NAME, and DB_PORT environment variables.'
+        'Database configuration is incomplete. In production, set DATABASE_URL or '
+        'DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, and DB_PORT environment variables.'
     )
 
 

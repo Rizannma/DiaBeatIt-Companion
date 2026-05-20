@@ -3,6 +3,7 @@ from flask import render_template, redirect, url_for, flash, session, request, c
 from flask_login import current_user, login_user
 from datetime import datetime, timedelta, date
 from werkzeug.security import generate_password_hash
+from sqlalchemy.exc import SQLAlchemyError, OperationalError, ProgrammingError
 
 from . import auth_bp
 from models import db, User, PatientProfile, Admin
@@ -11,6 +12,14 @@ from utils import generate_otp, log_login_audit, get_client_ip, column_exists
 from email_service import send_otp_email
 from push_service import send_notification_to_user, build_notification_payload
 from config import Config
+from utils import auth_tables_ready
+
+
+def _render_login_db_error(form, error):
+    db.session.rollback()
+    current_app.logger.error('[Auth] Database failure during login: %s', error, exc_info=True)
+    flash('Authentication database is temporarily unavailable. Please try again later.', 'danger')
+    return render_template('login.html', form=form), 503
 
 
 @auth_bp.route('/', methods=['GET', 'POST'])
@@ -22,21 +31,25 @@ def login():
     
     form = LoginForm()
     if form.validate_on_submit():
-        client_ip = get_client_ip(request)
-        user = User.query.filter_by(email=form.email.data).first()
-        if not user:
-            user = Admin.query.filter_by(email=form.email.data).first()
-        if user:
-            if user.lockout_until and datetime.utcnow() < user.lockout_until:
-                time_left = user.lockout_until - datetime.utcnow()
-                flash(f"Account locked. Try again in {int(time_left.total_seconds() // 60)} mins.", 'danger')
-                log_login_audit('login_locked', status='warning', user=user, detail='Login blocked due to active lockout.', ip_address=client_ip)
-                return render_template('login.html', form=form)
+        try:
+            if not auth_tables_ready():
+                return _render_login_db_error(form, RuntimeError('Required auth tables are missing'))
 
-            if user.check_password(form.password.data):
-                was_locked = bool(user.lockout_until and datetime.utcnow() < user.lockout_until)
-                user.login_attempts = 0
-                user.lockout_until = None
+            client_ip = get_client_ip(request)
+            user = User.query.filter_by(email=form.email.data).first()
+            if not user:
+                user = Admin.query.filter_by(email=form.email.data).first()
+            if user:
+                if user.lockout_until and datetime.utcnow() < user.lockout_until:
+                    time_left = user.lockout_until - datetime.utcnow()
+                    flash(f"Account locked. Try again in {int(time_left.total_seconds() // 60)} mins.", 'danger')
+                    log_login_audit('login_locked', status='warning', user=user, detail='Login blocked due to active lockout.', ip_address=client_ip)
+                    return render_template('login.html', form=form)
+
+                if user.check_password(form.password.data):
+                    was_locked = bool(user.lockout_until and datetime.utcnow() < user.lockout_until)
+                    user.login_attempts = 0
+                    user.lockout_until = None
 
                 if was_locked:
                     # Send account unlocked notification
@@ -56,69 +69,75 @@ def login():
                 elif not user.confirmed_at or (datetime.utcnow() - user.confirmed_at) > timedelta(days=15):
                     needs_verification = True
 
-                if needs_verification:
-                    otp = generate_otp()
-                    user.otp = otp
-                    user.otp_sent_at = datetime.utcnow()
-                    db.session.commit()
-                    session['verify_email'] = user.email
-                    session['verification_reason'] = 'first login or periodic verification'
-                    if send_otp_email(user.email, otp, "Verify Your Diabeatit Account"):
-                        log_login_audit('verification_otp_sent', status='info', user=user, detail='Verification OTP sent after login.', ip_address=client_ip)
-                        flash('A verification code has been sent to your email. Please enter it to continue.', 'info')
-                        return redirect(url_for('verification.verify_account_otp'))
-                    else:
-                        log_login_audit('verification_otp_failed', status='error', user=user, detail='Failed to send verification OTP email.', ip_address=client_ip)
-                        flash('Failed to send verification email. Please try again.', 'danger')
-                        return render_template('login.html', form=form)
+                    if needs_verification:
+                        otp = generate_otp()
+                        user.otp = otp
+                        user.otp_sent_at = datetime.utcnow()
+                        db.session.commit()
+                        session['verify_email'] = user.email
+                        session['verification_reason'] = 'first login or periodic verification'
+                        if send_otp_email(user.email, otp, "Verify Your Diabeatit Account"):
+                            log_login_audit('verification_otp_sent', status='info', user=user, detail='Verification OTP sent after login.', ip_address=client_ip)
+                            flash('A verification code has been sent to your email. Please enter it to continue.', 'info')
+                            return redirect(url_for('verification.verify_account_otp'))
+                        else:
+                            log_login_audit('verification_otp_failed', status='error', user=user, detail='Failed to send verification OTP email.', ip_address=client_ip)
+                            flash('Failed to send verification email. Please try again.', 'danger')
+                            return render_template('login.html', form=form)
 
-                # Successful login without verification needed
-                login_user(user)
-                
-                # Send welcome-back notification on every successful login
-                try:
-                    send_notification_to_user(user.id, "Welcome back", "Your daily insights are ready.", "login-success", "/dashboard")
-                    current_app.logger.info('[Auth] Welcome back notification sent to user %s', user.id)
-                except Exception as e:
-                    current_app.logger.warning('[Auth] Failed to send welcome back notification: %s', e)
-                
-                db.session.commit()
-                log_login_audit('login_success', status='success', user=user, detail='Direct login successful.', ip_address=client_ip)
-                flash('Login successful! Your account is up to date.', 'success')
-                return redirect(url_for('admin.dashboard' if user.is_admin else 'user.dashboard'))
-            else:
-                user.login_attempts = (user.login_attempts or 0) + 1
-                if user.login_attempts >= 3:
-                    if user.login_attempts == 3:
-                        minutes = 30
-                    elif user.login_attempts == 4:
-                        minutes = 60
-                    else:
-                        minutes = 90
-                    user.lockout_until = datetime.utcnow() + timedelta(minutes=minutes)
-                    
-                    # Store lock_until for display in unlock notification (if column exists)
-                    if column_exists('users', 'lock_until'):
-                        user.lock_until = user.lockout_until
-                    
-                    # Send account locked notification (if column exists)
-                    if column_exists('users', 'lock_until'):
-                        try:
-                            payload = build_notification_payload('account-locked', lockout_minutes=minutes)
-                            send_notification_to_user(user.id, payload['title'], payload['body'], payload['tag'], payload['url'])
-                            current_app.logger.info('[Auth] Account lock notification sent to user %s for %d minutes', user.id, minutes)
-                        except Exception as e:
-                            current_app.logger.warning('[Auth] Failed to send account lock notification: %s', e)
-                    
-                    flash(f"Too many attempts. Account locked for {minutes} minutes.", 'danger')
-                    log_login_audit('login_failed_lockout', status='warning', user=user, detail=f'Failed login triggered {minutes}-minute lockout.', ip_address=client_ip)
+                    # Successful login without verification needed
+                    login_user(user)
+
+                    # Send welcome-back notification on every successful login
+                    try:
+                        send_notification_to_user(user.id, "Welcome back", "Your daily insights are ready.", "login-success", "/dashboard")
+                        current_app.logger.info('[Auth] Welcome back notification sent to user %s', user.id)
+                    except Exception as e:
+                        current_app.logger.warning('[Auth] Failed to send welcome back notification: %s', e)
+
+                    db.session.commit()
+                    log_login_audit('login_success', status='success', user=user, detail='Direct login successful.', ip_address=client_ip)
+                    flash('Login successful! Your account is up to date.', 'success')
+                    return redirect(url_for('admin.dashboard' if user.is_admin else 'user.dashboard'))
                 else:
-                    flash(f"Login unsuccessful. Please check email and password. {3 - user.login_attempts} attempts remaining.", 'danger')
-                    log_login_audit('login_failed', status='warning', user=user, detail=f'Incorrect password. Attempts: {user.login_attempts}.', ip_address=client_ip)
-                db.session.commit()
-        else:
-            flash('Email not found.', 'danger')
-            log_login_audit('login_failed_no_account', status='warning', email=form.email.data, detail='Login attempted with unknown email.', ip_address=client_ip)
+                    user.login_attempts = (user.login_attempts or 0) + 1
+                    if user.login_attempts >= 3:
+                        if user.login_attempts == 3:
+                            minutes = 30
+                        elif user.login_attempts == 4:
+                            minutes = 60
+                        else:
+                            minutes = 90
+                        user.lockout_until = datetime.utcnow() + timedelta(minutes=minutes)
+
+                        # Store lock_until for display in unlock notification (if column exists)
+                        if column_exists('users', 'lock_until'):
+                            user.lock_until = user.lockout_until
+
+                        # Send account locked notification (if column exists)
+                        if column_exists('users', 'lock_until'):
+                            try:
+                                payload = build_notification_payload('account-locked', lockout_minutes=minutes)
+                                send_notification_to_user(user.id, payload['title'], payload['body'], payload['tag'], payload['url'])
+                                current_app.logger.info('[Auth] Account lock notification sent to user %s for %d minutes', user.id, minutes)
+                            except Exception as e:
+                                current_app.logger.warning('[Auth] Failed to send account lock notification: %s', e)
+
+                        flash(f"Too many attempts. Account locked for {minutes} minutes.", 'danger')
+                        log_login_audit('login_failed_lockout', status='warning', user=user, detail=f'Failed login triggered {minutes}-minute lockout.', ip_address=client_ip)
+                    else:
+                        flash(f"Login unsuccessful. Please check email and password. {3 - user.login_attempts} attempts remaining.", 'danger')
+                        log_login_audit('login_failed', status='warning', user=user, detail=f'Incorrect password. Attempts: {user.login_attempts}.', ip_address=client_ip)
+                    db.session.commit()
+            else:
+                flash('Email not found.', 'danger')
+                log_login_audit('login_failed_no_account', status='warning', email=form.email.data, detail='Login attempted with unknown email.', ip_address=client_ip)
+        except (OperationalError, ProgrammingError, SQLAlchemyError) as exc:
+            return _render_login_db_error(form, exc)
+        except Exception as exc:
+            current_app.logger.error('[Auth] Unexpected login failure: %s', exc, exc_info=True)
+            flash('Unable to complete login right now. Please try again later.', 'danger')
+            return render_template('login.html', form=form), 500
     
     return render_template('login.html', form=form)
 
