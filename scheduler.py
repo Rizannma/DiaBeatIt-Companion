@@ -96,13 +96,20 @@ def init_scheduler(app):
         logger.info('[Scheduler] Scheduler already running; skipping initialization')
         return
 
-    scheduler.init_app(app)
-    
-    # Schedule jobs
-    scheduler.add_job(id='daily_log_reminder', func=daily_log_reminder_job, trigger='cron', hour='19', minute='0')
-    scheduler.add_job(id='weekly_summary', func=weekly_summary_job, trigger='cron', day_of_week='sun', hour='18', minute='0')
-    scheduler.add_job(id='profile_refresh_reminder', func=profile_refresh_reminder_job, trigger='cron', day='1', hour='9', minute='0')
+    try:
+        # Ensure scheduler configuration exists and doesn't crash startup
+        app.config.setdefault('SCHEDULER_API_ENABLED', False)
+        app.config.setdefault('SCHEDULER_TIMEZONE', 'UTC')
 
-    scheduler.start()
-    logger.info('[Scheduler] APScheduler initialized with 3 jobs: daily_log_reminder, weekly_summary, profile_refresh_reminder')
+        scheduler.init_app(app)
+
+        # Schedule jobs
+        scheduler.add_job(id='daily_log_reminder', func=daily_log_reminder_job, trigger='cron', hour='19', minute='0')
+        scheduler.add_job(id='weekly_summary', func=weekly_summary_job, trigger='cron', day_of_week='sun', hour='18', minute='0')
+        scheduler.add_job(id='profile_refresh_reminder', func=profile_refresh_reminder_job, trigger='cron', day='1', hour='9', minute='0')
+
+        scheduler.start()
+        logger.info('[Scheduler] APScheduler initialized with 3 jobs: daily_log_reminder, weekly_summary, profile_refresh_reminder')
+    except Exception as e:
+        logger.error('[Scheduler] Failed to initialize APScheduler: %s', e, exc_info=True)
 

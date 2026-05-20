@@ -1,5 +1,6 @@
 Flask
 Flask-SQLAlchemy
+flask-apscheduler
 psycopg2-binary
 Flask-WTF
 email-validator

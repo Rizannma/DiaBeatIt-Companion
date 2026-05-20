@@ -1,23 +1,43 @@
-import joblib
+import os
+import pickle
 import numpy as np
 import logging
 from datetime import datetime, timedelta
 from flask import has_request_context, session
 from sqlalchemy import func
+from huggingface_hub import hf_hub_download
 from models import db, User, PatientProfile, GlucoseEntry, ActivityEntry, SleepEntry, MealEntry
 from push_service import send_high_glucose_alert
 
 logger = logging.getLogger(__name__)
+HF_HUB_REPO = os.environ.get('HF_HUB_REPO', 'YOUR_HF_USERNAME/YOUR_MODEL_REPO')
 
-# Load models and scalers
+risk_model = None
+glucose_model = None
+scaler_class = None
+scaler_reg = None
+
+
+def _download_and_load_model(filename):
+    repo_id = HF_HUB_REPO
+    if not repo_id:
+        raise RuntimeError('HF_HUB_REPO environment variable is not set')
+
+    model_path = hf_hub_download(repo_id=repo_id, filename=filename)
+    with open(model_path, 'rb') as f:
+        return pickle.load(f)
+
+
+# Load models and scalers once at startup
 try:
-    risk_model = joblib.load('risk_model.pkl')
-    glucose_model = joblib.load('glucose_model.pkl')
-    scaler_class = joblib.load('scaler_class.pkl')
-    scaler_reg = joblib.load('scaler_reg.pkl')
+    risk_model = _download_and_load_model('risk_model.pkl')
+    glucose_model = _download_and_load_model('glucose_model.pkl')
+    scaler_class = _download_and_load_model('scaler_class.pkl')
+    scaler_reg = _download_and_load_model('scaler_reg.pkl')
+    logger.info('Model artifacts loaded from Hugging Face Hub successfully.')
 except Exception as e:
-    logger.warning("Warning: Model files not found. %s", e)
-    print(f"Warning: Model files not found. {e}")
+    logger.warning('Warning: Failed to load model artifacts from Hugging Face Hub. %s', e, exc_info=True)
+
 
 
 def _align_feature_count(features, expected_count):
