@@ -25,6 +25,7 @@ def _render_login_db_error(form, error):
 @auth_bp.route('/', methods=['GET', 'POST'])
 def login():
     """User login route"""
+    print('login route hit', flush=True)
     
     if current_user.is_authenticated:
         return redirect(url_for('admin.dashboard' if current_user.is_admin else 'user.dashboard'))
@@ -39,6 +40,7 @@ def login():
             user = User.query.filter_by(email=form.email.data).first()
             if not user:
                 user = Admin.query.filter_by(email=form.email.data).first()
+            print('user found:', bool(user), flush=True)
             if user:
                 if user.lockout_until and datetime.utcnow() < user.lockout_until:
                     time_left = user.lockout_until - datetime.utcnow()
@@ -47,45 +49,30 @@ def login():
                     return render_template('login.html', form=form)
 
                 if user.check_password(form.password.data):
+                    print('password valid', flush=True)
+                    print('is_confirmed:', user.is_confirmed, flush=True)
                     was_locked = bool(user.lockout_until and datetime.utcnow() < user.lockout_until)
                     user.login_attempts = 0
                     user.lockout_until = None
 
-                if was_locked:
-                    # Send account unlocked notification
-                    try:
-                        payload = build_notification_payload('account-unlocked')
-                        send_notification_to_user(user.id, payload['title'], payload['body'], payload['tag'], payload['url'])
-                        current_app.logger.info('[Auth] Account unlock notification sent to user %s', user.id)
-                    except Exception as e:
-                        current_app.logger.warning('[Auth] Failed to send account unlock notification: %s', e)
+                    if was_locked:
+                        # Send account unlocked notification
+                        try:
+                            payload = build_notification_payload('account-unlocked')
+                            send_notification_to_user(user.id, payload['title'], payload['body'], payload['tag'], payload['url'])
+                            current_app.logger.info('[Auth] Account unlock notification sent to user %s', user.id)
+                        except Exception as e:
+                            current_app.logger.warning('[Auth] Failed to send account unlock notification: %s', e)
 
-                # Check if verification needed
-                needs_verification = False
-                if user.is_admin:
-                    needs_verification = False
-                elif not user.is_confirmed:
-                    needs_verification = True
-                elif not user.confirmed_at or (datetime.utcnow() - user.confirmed_at) > timedelta(days=15):
-                    needs_verification = True
-
-                    if needs_verification:
-                        otp = generate_otp()
-                        user.otp = otp
-                        user.otp_sent_at = datetime.utcnow()
+                    if not user.is_admin and not user.is_confirmed:
+                        print('calling login_user', flush=True)
+                        login_user(user)
+                        print('redirecting to verify-account', flush=True)
                         db.session.commit()
-                        session['verify_email'] = user.email
-                        session['verification_reason'] = 'first login or periodic verification'
-                        if send_otp_email(user.email, otp, "Verify Your Diabeatit Account"):
-                            log_login_audit('verification_otp_sent', status='info', user=user, detail='Verification OTP sent after login.', ip_address=client_ip)
-                            flash('A verification code has been sent to your email. Please enter it to continue.', 'info')
-                            return redirect(url_for('verification.verify_account_otp'))
-                        else:
-                            log_login_audit('verification_otp_failed', status='error', user=user, detail='Failed to send verification OTP email.', ip_address=client_ip)
-                            flash('Failed to send verification email. Please try again.', 'danger')
-                            return render_template('login.html', form=form)
+                        log_login_audit('verification_required', status='info', user=user, detail='User must verify account before dashboard access.', ip_address=client_ip)
+                        return redirect(url_for('auth.verify_account'))
 
-                    # Successful login without verification needed
+                    print('calling login_user', flush=True)
                     login_user(user)
 
                     # Send welcome-back notification on every successful login
@@ -97,8 +84,10 @@ def login():
 
                     db.session.commit()
                     log_login_audit('login_success', status='success', user=user, detail='Direct login successful.', ip_address=client_ip)
-                    flash('Login successful! Your account is up to date.', 'success')
-                    return redirect(url_for('admin.dashboard' if user.is_admin else 'user.dashboard'))
+                    print('login successful', flush=True)
+                    response = redirect(url_for('admin.dashboard' if user.is_admin else 'user.dashboard'))
+                    print('redirect response:', response.status_code, flush=True)
+                    return response
                 else:
                     user.login_attempts = (user.login_attempts or 0) + 1
                     if user.login_attempts >= 3:
@@ -188,6 +177,35 @@ def signup():
             flash(f'Error: {str(e)}', 'danger')
 
     return render_template('signup.html', form=form)
+
+
+@auth_bp.route('/verify-account', methods=['GET'])
+def verify_account():
+    """Entry point for account verification after login."""
+    if not current_user.is_authenticated:
+        flash('Please log in first.', 'danger')
+        return redirect(url_for('auth.login'))
+
+    if current_user.is_admin:
+        return redirect(url_for('admin.dashboard'))
+
+    if current_user.is_confirmed:
+        return redirect(url_for('user.dashboard'))
+
+    otp = generate_otp()
+    current_user.otp = otp
+    current_user.otp_sent_at = datetime.utcnow()
+    db.session.commit()
+    session['verify_email'] = current_user.email
+    session['verification_reason'] = 'first login or periodic verification'
+
+    if send_otp_email(current_user.email, otp, "Verify Your Diabeatit Account"):
+        log_login_audit('verification_otp_sent', status='info', user=current_user, detail='Verification OTP sent after login.', ip_address=get_client_ip(request))
+        flash('A verification code has been sent to your email. Please enter it to continue.', 'info')
+        return redirect(url_for('verification.verify_account_otp'))
+
+    flash('Failed to send verification email. Please try again.', 'danger')
+    return redirect(url_for('auth.login'))
 
 
 @auth_bp.route('/forgot_password', methods=['GET', 'POST'])

@@ -4,6 +4,8 @@ from flask_login import login_user, current_user
 from datetime import datetime, timedelta, date
 from werkzeug.security import generate_password_hash
 
+print('IMPORTING: verification.py', flush=True)
+
 from . import verification_bp
 from models import db, User
 from forms import ConfirmForm, ResetPasswordForm
