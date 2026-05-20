@@ -9,7 +9,6 @@ from sqlalchemy import func
 from . import user_bp
 from forms import ProfileForm
 from models import db, User, GlucoseEntry, MealEntry, ActivityEntry, SleepEntry
-from .prediction_service import predict_diabetes_metrics
 from email_service import send_report_email
 
 
@@ -215,6 +214,8 @@ def _build_model_context(user_id):
     today = datetime.utcnow().date()
     seven_days_ago = today - timedelta(days=7)
     thirty_days_ago = today - timedelta(days=29)
+
+    from .prediction_service import predict_diabetes_metrics
 
     raw_prediction = predict_diabetes_metrics(user_id)
     prediction_error = None

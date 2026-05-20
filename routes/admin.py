@@ -9,7 +9,6 @@ from sqlalchemy import func, text
 
 from models import db, User, PatientProfile, GlucoseEntry, MealEntry, ActivityEntry, SleepEntry, LoginAudit
 from config import Config
-from .prediction_service import predict_diabetes_metrics
 
 from . import admin_bp
 
@@ -52,6 +51,7 @@ def _build_user_inventory(now):
 
         if user.profile_complete:
             predictable_users += 1
+            from .prediction_service import predict_diabetes_metrics
             prediction = predict_diabetes_metrics(user.id)
             if prediction and prediction.get('status') == 'success':
                 successful_predictions += 1

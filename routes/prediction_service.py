@@ -13,6 +13,8 @@ HF_HUB_REPO = os.environ.get('HF_HUB_REPO', 'stella001228/diabeatit-models')
 HF_HUB_REVISION = os.environ.get('HF_HUB_REVISION', 'main')
 HF_HUB_TOKEN = os.environ.get('HF_HUB_TOKEN') or os.environ.get('HF_TOKEN') or os.environ.get('HUGGINGFACE_HUB_TOKEN')
 
+print('prediction_service imported')
+
 
 def _download_hf_file(filename):
     if not HF_HUB_REPO:
@@ -30,6 +32,7 @@ def _download_hf_file(filename):
 
 def load_onnx_model(filename):
     try:
+        print('load_onnx_model called')
         import onnxruntime as ort
         from onnxruntime import GraphOptimizationLevel, SessionOptions
 
@@ -48,6 +51,7 @@ def load_onnx_model(filename):
 
 def load_scaler(filename):
     try:
+        print('load_scaler called')
         import pickle
 
         file_path = _download_hf_file(filename)
