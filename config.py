@@ -10,13 +10,13 @@ def _build_database_uri():
     db_user = os.environ.get('DB_USER')
     db_password = os.environ.get('DB_PASSWORD')
     db_name = os.environ.get('DB_NAME')
-    db_port = os.environ.get('DB_PORT', '3306')
+    db_port = os.environ.get('DB_PORT', '5432')
     database_url = os.environ.get('DATABASE_URL')
 
     if db_host and db_user and db_password and db_name:
-        return f"mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?charset=utf8mb4"
+        return f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
-    if os.environ.get('FLASK_ENV') != 'production' and database_url:
+    if database_url:
         return database_url
 
     raise RuntimeError(
@@ -35,7 +35,7 @@ class Config:
     DB_USER = os.environ.get('DB_USER')
     DB_PASSWORD = os.environ.get('DB_PASSWORD')
     DB_NAME = os.environ.get('DB_NAME')
-    DB_PORT = os.environ.get('DB_PORT', '3306')
+    DB_PORT = os.environ.get('DB_PORT', '5432')
     DATABASE_URL = os.environ.get('DATABASE_URL')
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False

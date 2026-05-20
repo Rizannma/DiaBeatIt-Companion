@@ -1,6 +1,6 @@
 Flask
 Flask-SQLAlchemy
-PyMySQL
+psycopg2-binary
 Flask-WTF
 email-validator
 Flask-Login
