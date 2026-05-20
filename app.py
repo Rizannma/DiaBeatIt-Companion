@@ -1,11 +1,13 @@
 """Main Flask Application"""
+print('IMPORTING: app.py', flush=True)
+
 from flask import Flask, make_response, send_from_directory, request, redirect
 from flask_migrate import Migrate
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import logging
 
-print('wsgi import')
+print('wsgi import', flush=True)
 
 from config import Config
 from models import db, init_login_manager
@@ -16,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def create_app():
     """Application factory"""
-    print('create_app start')
+    print('create_app start', flush=True)
     app = Flask(__name__)
     app.config.from_object(Config)
 
@@ -50,7 +52,7 @@ def create_app():
 
     # Register blueprints
     register_blueprints(app)
-    print('routes registered')
+    print('routes registered', flush=True)
 
     @app.before_request
     def enforce_https_transport():
@@ -111,7 +113,7 @@ def create_app():
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         return response
 
-    print('create_app done')
+    print('create_app done', flush=True)
     return app
 
 if __name__ == '__main__':

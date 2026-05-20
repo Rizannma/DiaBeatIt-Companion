@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+print('IMPORTING: config.py', flush=True)
+
 
 def _build_database_uri():
     database_url = os.environ.get('DATABASE_URL')
@@ -23,10 +25,12 @@ def _build_database_uri():
     if db_host and db_user and db_password and db_name:
         return f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 
-    raise RuntimeError(
-        'Database configuration is incomplete. In production, set DATABASE_URL or '
-        'DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, and DB_PORT environment variables.'
+    fallback_database_uri = os.environ.get('SQLALCHEMY_DATABASE_URI', 'sqlite:///diabeatit.db')
+    print(
+        'Warning: database configuration is incomplete; using fallback database URI for startup.',
+        flush=True,
     )
+    return fallback_database_uri
 
 
 class Config:

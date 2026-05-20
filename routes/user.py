@@ -1,4 +1,5 @@
 ﻿"""User routes - Dashboard and logout"""
+print('IMPORTING: user.py', flush=True)
 import os
 from datetime import datetime, timedelta
 import math
