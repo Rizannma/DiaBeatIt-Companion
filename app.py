@@ -5,17 +5,18 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 import logging
 
+print('wsgi import')
+
 from config import Config
 from models import db, init_login_manager
-from utils import initialize_database
 from routes import register_blueprints
-from scheduler import init_scheduler
 
 logger = logging.getLogger(__name__)
 
 
 def create_app():
     """Application factory"""
+    print('create_app start')
     app = Flask(__name__)
     app.config.from_object(Config)
 
@@ -49,6 +50,7 @@ def create_app():
 
     # Register blueprints
     register_blueprints(app)
+    print('routes registered')
 
     @app.before_request
     def enforce_https_transport():
@@ -109,21 +111,7 @@ def create_app():
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         return response
 
-    # Initialize database
-    try:
-        initialize_database(app)
-    except Exception as exc:
-        logger.error('[App] Database initialization failed: %s', exc, exc_info=True)
-
-    # Initialize scheduler
-    try:
-        with app.app_context():
-            logger.info('[App] Initializing APScheduler for push notifications...')
-        init_scheduler(app)
-        logger.info('[App] APScheduler initialized successfully. Scheduled jobs: daily_log_reminder (19:00), weekly_summary (Sun 18:00), profile_refresh_reminder (1st day 09:00)')
-    except Exception as exc:
-        logger.error('[App] Scheduler initialization failed: %s', exc, exc_info=True)
-
+    print('create_app done')
     return app
 
 if __name__ == '__main__':

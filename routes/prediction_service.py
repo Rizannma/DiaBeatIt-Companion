@@ -1,14 +1,10 @@
 import os
 import gc
-import pickle
 import numpy as np
 import logging
 from datetime import datetime, timedelta
 from flask import has_request_context, session
 from sqlalchemy import func
-from huggingface_hub import hf_hub_download
-import onnxruntime as ort
-from onnxruntime import SessionOptions, GraphOptimizationLevel
 from models import db, User, PatientProfile, GlucoseEntry, ActivityEntry, SleepEntry, MealEntry
 from push_service import send_high_glucose_alert
 
@@ -22,6 +18,8 @@ def _download_hf_file(filename):
     if not HF_HUB_REPO:
         raise RuntimeError('HF_HUB_REPO environment variable is not set')
 
+    from huggingface_hub import hf_hub_download
+
     return hf_hub_download(
         repo_id=HF_HUB_REPO,
         filename=filename,
@@ -32,6 +30,9 @@ def _download_hf_file(filename):
 
 def load_onnx_model(filename):
     try:
+        import onnxruntime as ort
+        from onnxruntime import GraphOptimizationLevel, SessionOptions
+
         model_path = _download_hf_file(filename)
         # Create optimized session options to minimize memory and thread overhead
         sess_options = SessionOptions()
@@ -47,6 +48,8 @@ def load_onnx_model(filename):
 
 def load_scaler(filename):
     try:
+        import pickle
+
         file_path = _download_hf_file(filename)
         with open(file_path, 'rb') as f:
             scaler = pickle.load(f)
