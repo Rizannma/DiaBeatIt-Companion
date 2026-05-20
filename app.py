@@ -116,16 +116,16 @@ def create_app():
         logger.error('[App] Database initialization failed: %s', exc, exc_info=True)
 
     # Initialize scheduler
-    with app.app_context():
-        logger.info('[App] Initializing APScheduler for push notifications...')
-    init_scheduler(app)
-    logger.info('[App] APScheduler initialized successfully. Scheduled jobs: daily_log_reminder (19:00), weekly_summary (Sun 18:00), profile_refresh_reminder (1st day 09:00)')
-    
+    try:
+        with app.app_context():
+            logger.info('[App] Initializing APScheduler for push notifications...')
+        init_scheduler(app)
+        logger.info('[App] APScheduler initialized successfully. Scheduled jobs: daily_log_reminder (19:00), weekly_summary (Sun 18:00), profile_refresh_reminder (1st day 09:00)')
+    except Exception as exc:
+        logger.error('[App] Scheduler initialization failed: %s', exc, exc_info=True)
+
     return app
 
-# Create app instance
-app = create_app()
-
-
 if __name__ == '__main__':
+    app = create_app()
     app.run(debug=True)
