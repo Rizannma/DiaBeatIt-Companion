@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}User Management | DiaBeatIt Admin{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="container-fluid mt-4 mb-4 pb-4 admin-main">
+    <nav class="admin-nav mb-3">
+        <a href="{{ url_for('admin.dashboard') }}" class="admin-nav-brand">
+            <span class="nav-logo-icon"><i class="bi bi-drop-fill"></i></span>
+            <span>DiaBeatIt Admin</span>
+        </a>
+        <div class="admin-nav-links">
+            <a href="{{ url_for('admin.dashboard') }}" class="admin-nav-link">Overview</a>
+            <a href="{{ url_for('admin.users') }}" class="admin-nav-link active">User Management</a>
+            <a href="{{ url_for('admin.login_audit') }}" class="admin-nav-link">Login Audit</a>
+        </div>
+        <a class="btn btn-outline-danger btn-sm" href="{{ url_for('user.logout') }}"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+    </nav>
+
+    <section class="row g-3 mb-4 align-items-stretch">
+                <div class="col-12 d-flex">
+                    <div class="card p-4 admin-panel w-100">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                            <div>
+                                <h2 class="h5 fw-bold mb-1">All Users</h2>
+                                <p class="small text-muted mb-0">Filter users by risk, verification, and profile completeness.</p>
+                            </div>
+                            <div class="admin-inline-chip">{{ admin_data.all_users|length }} users</div>
+                        </div>
+
+                        <div class="row g-2 mb-3 admin-filter-row">
+                            <div class="col-md-4">
+                                <input id="adminUserSearch" type="text" class="form-control" placeholder="Search name, email, or note">
+                            </div>
+                            <div class="col-md-2">
+                                <select id="adminRiskFilter" class="form-select">
+                                    <option value="all">All risk</option>
+                                    <option value="high">High Risk</option>
+                                    <option value="low">Low Risk</option>
+                                    <option value="unavailable">Unavailable</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select id="adminVerificationFilter" class="form-select">
+                                    <option value="all">All verification</option>
+                                    <option value="verified">Verified</option>
+                                    <option value="pending">Pending</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <select id="adminProfileFilter" class="form-select">
+                                    <option value="all">All profiles</option>
+                                    <option value="complete">Complete</option>
+                                    <option value="incomplete">Incomplete</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table align-middle admin-table mb-0" id="adminUsersTable">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Risk</th>
+                                        <th>Verification</th>
+                                        <th>Profile</th>
+                                        <th>Security</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in admin_data.all_users %}
+                                    <tr class="admin-user-row"
+                                        data-risk="{{ item.risk_filter }}"
+                                        data-verification="{{ item.verification_status|lower }}"
+                                        data-profile="{{ item.profile_status|lower }}"
+                                        data-search="{{ item.name }} {{ item.email }} {{ item.prediction_note }} {{ item.account_for }}">
+                                        <td>
+                                            <div class="fw-semibold user-cell-text">{{ item.name }}</div>
+                                            <div class="small text-muted user-cell-text">{{ item.email }}</div>
+                                            <div class="small text-muted user-cell-text">{{ item.account_for }} | Age {{ item.age }}</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ 'text-bg-danger' if item.risk_filter == 'high' else 'text-bg-success' if item.risk_filter == 'low' else 'text-bg-secondary' }} user-cell-text">{{ item.risk_label }}</span>
+                                            <div class="small text-muted mt-1 user-cell-text">{{ item.risk_score if item.risk_score is not none else 'N/A' }}{% if item.risk_score is not none %}%{% endif %}</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ 'text-bg-success' if item.verification_status == 'Verified' else 'text-bg-warning' }} user-cell-text">{{ item.verification_status }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ 'text-bg-success' if item.profile_status == 'Complete' else 'text-bg-secondary' }} user-cell-text">{{ item.profile_status }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ 'text-bg-danger' if item.lockout_active else 'text-bg-light text-dark' }} user-cell-text">{{ 'Locked' if item.lockout_active else 'Clear' }}</span>
+                                            <div class="small text-muted mt-1 user-cell-text">Attempts: {{ item.login_attempts }}</div>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-muted">No users available yet.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="admin-pagination-wrap mt-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div class="small text-muted">
+                                {% if admin_data.users_pagination.total_items %}
+                                Showing {{ admin_data.users_pagination.start_item }}-{{ admin_data.users_pagination.end_item }} of {{ admin_data.users_pagination.total_items }} users
+                                {% else %}
+                                No users available yet.
+                                {% endif %}
+                            </div>
+                            <div class="btn-group btn-group-sm admin-simple-pagination" role="group" aria-label="User management pagination">
+                                {% if admin_data.users_pagination.has_prev %}
+                                <a class="btn btn-outline-secondary" href="{{ url_for('admin.users', page=admin_data.users_pagination.prev_page) }}">Previous</a>
+                                {% else %}
+                                <button class="btn btn-outline-secondary" type="button" disabled>Previous</button>
+                                {% endif %}
+                                {% if admin_data.users_pagination.has_next %}
+                                <a class="btn btn-outline-secondary" href="{{ url_for('admin.users', page=admin_data.users_pagination.next_page) }}">Next</a>
+                                {% else %}
+                                <button class="btn btn-outline-secondary" type="button" disabled>Next</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    (function () {
+        const searchInput = document.getElementById('adminUserSearch');
+        const riskFilter = document.getElementById('adminRiskFilter');
+        const verificationFilter = document.getElementById('adminVerificationFilter');
+        const profileFilter = document.getElementById('adminProfileFilter');
+        const rows = Array.from(document.querySelectorAll('.admin-user-row'));
+
+            function escapeHtml(raw) {
+                return raw
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/\"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            function highlightNode(node, keyword) {
+                if (!node.dataset.rawText) {
+                    node.dataset.rawText = node.textContent;
+                }
+                const raw = node.dataset.rawText;
+                if (!keyword) {
+                    node.innerHTML = escapeHtml(raw);
+                    return;
+                }
+                const safeKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp('(' + safeKeyword + ')', 'ig');
+                node.innerHTML = escapeHtml(raw).replace(regex, '<mark class="admin-search-hit">$1</mark>');
+            }
+
+            function applyFilters() {
+                const keyword = (searchInput.value || '').toLowerCase().trim();
+                const riskValue = riskFilter.value;
+                const verifyValue = verificationFilter.value;
+                const profileValue = profileFilter.value;
+
+                rows.forEach(function (row) {
+                    const riskPass = riskValue === 'all' || row.dataset.risk === riskValue;
+                    const verifyPass = verifyValue === 'all' || row.dataset.verification === verifyValue;
+                    const profilePass = profileValue === 'all' || row.dataset.profile === profileValue;
+                    const searchText = (row.dataset.search || '').toLowerCase();
+                    const searchPass = !keyword || searchText.indexOf(keyword) !== -1;
+
+                    row.style.display = (riskPass && verifyPass && profilePass && searchPass) ? '' : 'none';
+
+                    row.querySelectorAll('.user-cell-text').forEach(function (node) {
+                        highlightNode(node, searchPass ? keyword : '');
+                    });
+                });
+            }
+
+            [searchInput, riskFilter, verificationFilter, profileFilter].forEach(function (el) {
+                if (!el) {
+                    return;
+                }
+                el.addEventListener('input', applyFilters);
+                el.addEventListener('change', applyFilters);
+            });
+    })();
+</script>
+{% endblock %}

@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics | DiaBeatIt{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 mb-4 pb-4">
+    {% if profile_needed %}
+    <div class="alert alert-warning d-flex align-items-center" role="alert">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        <div>Complete your profile to unlock analytics generated from model inputs.</div>
+        <a href="{{ url_for('user.profile') }}" class="btn btn-sm btn-primary ms-auto">Go to Profile</a>
+    </div>
+    {% else %}
+    {% if model_data.prediction_error %}
+    <div class="alert alert-danger mb-0">{{ model_data.prediction_error }}</div>
+    {% else %}
+    <div class="row g-3 mb-3">
+        <div class="col-md-6 col-xl-3">
+            <div class="border rounded-4 p-3 h-100 kpi-card metric-card">
+                <div class="small text-muted">Risk Probability</div>
+                <div class="display-6 fw-semibold">{{ model_data.predictions.risk_score }}%</div>
+                <span class="badge {{ 'text-bg-danger' if model_data.predictions.risk_label == 'High Risk' else 'text-bg-success' }}">
+                    {{ model_data.predictions.risk_label }}
+                </span>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="border rounded-4 p-3 h-100 kpi-card metric-card">
+                <div class="small text-muted">Predicted Next Glucose</div>
+                <div class="display-6 fw-semibold">{{ model_data.predictions.predicted_next_glucose }}</div>
+                <div class="small text-muted">mg/dL</div>
+                <div class="mt-2 small">
+                    {% set predicted_glucose = model_data.predictions.predicted_next_glucose|float %}
+                    {% if predicted_glucose < 100 %}
+                    <span class="badge text-bg-success">Generally Healthy Range</span>
+                    {% elif predicted_glucose < 126 %}
+                    <span class="badge text-bg-warning">Watch Closely</span>
+                    {% else %}
+                    <span class="badge text-bg-danger">High Needs Attention</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="border rounded-4 p-3 h-100 kpi-card metric-card">
+                <div class="small text-muted">Weekly Glucose Change</div>
+                <div class="display-6 fw-semibold {{ 'text-danger' if model_data.weekly_summary.glucose_change_vs_last_week > 0 else 'text-success' }}">
+                    {{ '+' if model_data.weekly_summary.glucose_change_vs_last_week > 0 else '' }}{{ model_data.weekly_summary.glucose_change_vs_last_week }}
+                </div>
+                <div class="small text-muted">mg/dL vs previous week</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="border rounded-4 p-3 h-100 kpi-card metric-card">
+                <div class="small text-muted">Monthly Active Days</div>
+                <div class="display-6 fw-semibold">{{ model_data.monthly_summary.active_days }}</div>
+                <div class="small text-muted">days with at least one log</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-4 analytics-chart-card mb-3">
+        <h3 class="h5 fw-bold mb-3">Predicted Next Glucose Trend (7 Days)</h3>
+        <canvas id="predictedTrendChart" height="110"></canvas>
+        <div class="small text-muted mt-2">Projected from your latest prediction and the recent 30-day glucose direction. This is a forecast, not a diagnosis.</div>
+    </div>
+
+    <div class="card p-4 analytics-chart-card mb-3">
+        <h3 class="h5 fw-bold mb-3">Behavior and Glucose Correlation (Last 30 Days)</h3>
+        <div class="behavior-legend mb-3">
+            <span class="legend-chip legend-glucose"><span class="legend-dot"></span>Glucose</span>
+            <span class="legend-chip legend-activity"><span class="legend-dot"></span>Activity</span>
+            <span class="legend-chip legend-sleep"><span class="legend-dot"></span>Sleep</span>
+        </div>
+        <canvas id="correlationChart" height="120"></canvas>
+        <div class="small text-muted mt-2">Positive means two things move in the same direction. Negative means they move in opposite directions. Correlation shows association, not cause.</div>
+    </div>
+
+    <div class="card p-4 mb-3">
+        <h3 class="h5 fw-bold mb-3">Risk Factor Impact (Explainable AI)</h3>
+        <div class="small text-muted mb-3">Higher percentages mean the factor has a stronger influence on this prediction.</div>
+        <div class="row g-3">
+            {% for factor in model_data.explainability.factors[:6] %}
+            <div class="col-md-6 col-xl-4">
+                <div class="factor-tile p-3 h-100">
+                    <div class="d-flex justify-content-between mb-1">
+                        <div class="fw-semibold small">{{ factor.factor }}</div>
+                        <div class="small text-muted text-end">
+                            <div>{{ factor.impact }}%</div>
+                            <div>{{ factor.impact_label }}</div>
+                        </div>
+                    </div>
+                    <div class="progress" role="progressbar" aria-label="{{ factor.factor }} impact" aria-valuenow="{{ factor.impact }}" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar" style="--impact: {{ factor.impact }}; width: calc(var(--impact) * 1%);"></div>
+                    </div>
+                    <div class="small text-muted mt-2">{{ factor.value }}</div>
+                    <div class="small mt-2">{{ factor.why }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="card p-4 mb-3">
+        <h3 class="h5 fw-bold mb-3">Correlation Insights</h3>
+        <div class="row g-3">
+            {% for item in model_data.correlation_insights %}
+            <div class="col-md-4">
+                <div class="correlation-insight-card h-100">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div class="correlation-insight-copy">
+                            <div class="fw-semibold correlation-insight-title">{{ item.label }}</div>
+                            <div class="small text-muted correlation-insight-text">{{ item.plain_text }}</div>
+                        </div>
+                        <span class="badge {{ 'text-bg-success' if item.coefficient is not none and item.coefficient < 0 else 'text-bg-danger' if item.coefficient is not none and item.coefficient > 0 else 'text-bg-secondary' }} correlation-insight-badge">{{ item.coefficient if item.coefficient is not none else 'N/A' }}</span>
+                    </div>
+                    <div class="progress correlation-mini-progress correlation-insight-progress">
+                        <div class="progress-bar {{ 'bg-success' if item.coefficient is not none and item.coefficient < 0 else 'bg-danger' if item.coefficient is not none and item.coefficient > 0 else 'bg-secondary' }} correlation-strength-bar" data-strength="{{ item.coefficient if item.coefficient is not none else 0 }}"></div>
+                    </div>
+                    <div class="small fw-semibold correlation-insight-summary">{{ item.insight }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="row g-3 mb-2">
+        <div class="col-lg-6">
+            <div class="card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                    <div>
+                        <h3 class="h5 fw-bold mb-1">Weekly Summary</h3>
+                        <div class="small text-muted">A quick snapshot of your current habits and glucose pattern.</div>
+                    </div>
+                    <span class="badge text-bg-light summary-badge">7 days</span>
+                </div>
+                <div class="summary-grid">
+                    <div class="summary-tile summary-glucose">
+                        <div class="small text-uppercase fw-semibold">Average glucose</div>
+                        <div class="summary-readout">
+                            <span class="summary-value">{{ model_data.weekly_summary.avg_glucose }}</span>
+                            <span class="summary-unit">mg/dL</span>
+                        </div>
+                    </div>
+                    <div class="summary-tile summary-activity">
+                        <div class="small text-uppercase fw-semibold">Activity</div>
+                        <div class="summary-readout">
+                            <span class="summary-value">{{ model_data.weekly_summary.activity_minutes }}</span>
+                            <span class="summary-unit">minutes</span>
+                        </div>
+                    </div>
+                    <div class="summary-tile summary-sleep">
+                        <div class="small text-uppercase fw-semibold">Sleep</div>
+                        <div class="summary-readout">
+                            <span class="summary-value">{{ model_data.weekly_summary.avg_sleep_hours }}</span>
+                            <span class="summary-unit">hours</span>
+                        </div>
+                    </div>
+                    <div class="summary-tile summary-diet">
+                        <div class="small text-uppercase fw-semibold">Diet score</div>
+                        <div class="summary-readout">
+                            <span class="summary-value">{{ model_data.weekly_summary.avg_diet_score }}</span>
+                            <span class="summary-unit">/10</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                    <div>
+                        <h3 class="h5 fw-bold mb-1">Monthly Summary ({{ model_data.monthly_summary.month_label }})</h3>
+                        <div class="small text-muted">How often you logged data and how the month averaged out.</div>
+                    </div>
+                    <span class="badge text-bg-light summary-badge">30 days</span>
+                </div>
+                <div class="summary-grid summary-grid-monthly">
+                    <div class="summary-tile summary-glucose">
+                        <div class="small text-uppercase fw-semibold">Glucose logs</div>
+                        <div class="summary-readout">
+                            <span class="summary-value">{{ model_data.monthly_summary.entry_counts.glucose }}</span>
+                            <span class="summary-unit">entries</span>
+                        </div>
+                    </div>
+                    <div class="summary-tile summary-diet">
+                        <div class="small text-uppercase fw-semibold">Meal logs</div>
+                        <div class="summary-readout">
+                            <span class="summary-value">{{ model_data.monthly_summary.entry_counts.meals }}</span>
+                            <span class="summary-unit">entries</span>
+                        </div>
+                    </div>
+                    <div class="summary-tile summary-activity">
+                        <div class="small text-uppercase fw-semibold">Activity logs</div>
+                        <div class="summary-readout">
+                            <span class="summary-value">{{ model_data.monthly_summary.entry_counts.activity }}</span>
+                            <span class="summary-unit">entries</span>
+                        </div>
+                    </div>
+                    <div class="summary-tile summary-sleep">
+                        <div class="small text-uppercase fw-semibold">Sleep logs</div>
+                        <div class="summary-readout">
+                            <span class="summary-value">{{ model_data.monthly_summary.entry_counts.sleep }}</span>
+                            <span class="summary-unit">entries</span>
+                        </div>
+                    </div>
+                    <div class="summary-tile summary-glucose summary-wide">
+                        <div class="small text-uppercase fw-semibold">30-day average glucose</div>
+                        <div class="summary-readout summary-readout-wide">
+                            <span class="summary-value">{{ model_data.monthly_summary.avg_glucose_30d }}</span>
+                            <span class="summary-unit">mg/dL</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if not profile_needed and not model_data.prediction_error %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script id="analytics-chart-data" type="application/json">{{ model_data.chart_data|tojson }}</script>
+<script>
+    (function () {
+        const chartDataNode = document.getElementById('analytics-chart-data');
+        if (!chartDataNode) {
+            return;
+        }
+
+        let chartData = {};
+        try {
+            chartData = JSON.parse(chartDataNode.textContent || '{}');
+        } catch (error) {
+            console.error('Unable to parse analytics chart data.', error);
+            return;
+        }
+
+        const trendCtx = document.getElementById('predictedTrendChart');
+        if (trendCtx) {
+            new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.predicted_labels_7d,
+                    datasets: [{
+                        label: 'Predicted Glucose (mg/dL)',
+                        data: chartData.predicted_glucose_7d,
+                        borderColor: '#dc2626',
+                        backgroundColor: 'rgba(220, 38, 38, 0.14)',
+                        fill: true,
+                        tension: 0.32,
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: false } }
+                }
+            });
+        }
+
+        const corrCtx = document.getElementById('correlationChart');
+        if (corrCtx) {
+            new Chart(corrCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels_30d,
+                    datasets: [
+                        {
+                            label: 'Avg Glucose',
+                            data: chartData.glucose_30d,
+                            borderColor: '#991b1b',
+                            backgroundColor: 'rgba(153, 27, 27, 0.14)',
+                            pointBackgroundColor: '#991b1b',
+                            pointBorderColor: '#ffffff',
+                            tension: 0.25,
+                            fill: true,
+                            borderWidth: 2.5,
+                            pointRadius: 3.5,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Activity Minutes',
+                            data: chartData.activity_30d,
+                            borderColor: '#ea580c',
+                            backgroundColor: 'rgba(234, 88, 12, 0.12)',
+                            pointBackgroundColor: '#ea580c',
+                            pointBorderColor: '#ffffff',
+                            tension: 0.25,
+                            fill: false,
+                            borderWidth: 2.25,
+                            pointRadius: 3.25,
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: 'Sleep Hours',
+                            data: chartData.sleep_30d,
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                            pointBackgroundColor: '#2563eb',
+                            pointBorderColor: '#ffffff',
+                            tension: 0.25,
+                            fill: false,
+                            borderWidth: 2.25,
+                            borderDash: [6, 4],
+                            pointRadius: 3.25,
+                            yAxisID: 'y2'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { type: 'linear', position: 'left', title: { display: true, text: 'Glucose' }, grid: { color: 'rgba(153, 27, 27, 0.08)' } },
+                        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Activity' } },
+                        y2: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, display: false }
+                    }
+                }
+            });
+        }
+
+        document.querySelectorAll('.correlation-strength-bar').forEach(function (bar) {
+            const strength = Math.min(1, Math.abs(Number.parseFloat(bar.dataset.strength || '0')));
+            bar.style.width = (strength * 100) + '%';
+        });
+    })();
+</script>
+{% endif %}
+{% endblock %}

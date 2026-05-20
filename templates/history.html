@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+
+{% block title %}History | DiaBeatIt{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 mb-4 pb-4">
+    {% if profile_needed %}
+    <div class="alert alert-warning d-flex align-items-center" role="alert">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        <div>Complete your profile to view full model input history.</div>
+        <a href="{{ url_for('user.profile') }}" class="btn btn-sm btn-primary ms-auto">Go to Profile</a>
+    </div>
+    {% else %}
+    <div class="row g-3">
+        <div class="col-12">
+            <div class="card p-4 history-shell">
+                <div class="d-flex flex-wrap gap-3 justify-content-between align-items-start mb-3">
+                    <div>
+                        <h2 class="h4 fw-bold mb-1">History</h2>
+                        <p class="subtitle mb-0">Search and filter your logged records across glucose, meals, activity, and sleep.</p>
+                    </div>
+                    <div class="history-summary-chip">Showing up to 120 entries per category</div>
+                </div>
+
+                <div class="history-toolbar row g-2 mb-3">
+                    <div class="col-md-4">
+                        <input id="historySearch" type="text" class="form-control" placeholder="Search keyword (type, notes, value)">
+                    </div>
+                    <div class="col-md-3">
+                        <select id="historyTypeFilter" class="form-select">
+                            <option value="all">All categories</option>
+                            <option value="glucose">Glucose</option>
+                            <option value="meals">Meals</option>
+                            <option value="activity">Activity</option>
+                            <option value="sleep">Sleep</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input id="historyDateFilter" type="date" class="form-control">
+                    </div>
+                    <div class="col-md-2">
+                        <button id="historyReset" type="button" class="btn btn-primary w-100">Reset</button>
+                    </div>
+                </div>
+
+                <div class="history-block" data-history-group="glucose" data-page-size="8">
+                    <h3 class="h6 fw-bold mt-2">Glucose</h3>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm align-middle history-table">
+                            <thead><tr><th>Date</th><th>Time</th><th>Type</th><th>Level</th></tr></thead>
+                            <tbody>
+                                {% for entry in model_data.recent_entries.glucose %}
+                                <tr class="history-row" data-group="glucose" data-date="{{ entry.date.strftime('%Y-%m-%d') }}" data-search="{{ entry.reading_type }} {{ entry.glucose_level }} {{ entry.notes or '' }}">
+                                    <td>{{ entry.date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ entry.time.strftime('%H:%M') }}</td>
+                                    <td>{{ entry.reading_type.replace('_', ' ')|title }}</td>
+                                    <td>{{ entry.glucose_level }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="4" class="text-muted">No glucose history yet.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="history-empty-note d-none">No matching records for the current filters.</div>
+                    <div class="history-pagination d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
+                        <div class="history-page-info small text-muted">Showing 0 entries.</div>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Glucose history pagination">
+                            <button type="button" class="btn btn-outline-secondary history-page-prev">Previous</button>
+                            <button type="button" class="btn btn-outline-secondary history-page-next">Next</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="history-block" data-history-group="meals" data-page-size="8">
+                    <h3 class="h6 fw-bold">Meals</h3>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm align-middle history-table">
+                            <thead><tr><th>Date</th><th>Time</th><th>Type</th><th>Diet Score</th></tr></thead>
+                            <tbody>
+                                {% for entry in model_data.recent_entries.meals %}
+                                <tr class="history-row" data-group="meals" data-date="{{ entry.date.strftime('%Y-%m-%d') }}" data-search="{{ entry.meal_type }} {{ entry.food_items or '' }} {{ entry.diet_score if entry.diet_score is not none else '' }}">
+                                    <td>{{ entry.date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ entry.time.strftime('%H:%M') }}</td>
+                                    <td>{{ entry.meal_type|title }}</td>
+                                    <td>{{ entry.diet_score if entry.diet_score is not none else '-' }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="4" class="text-muted">No meal history yet.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="history-empty-note d-none">No matching records for the current filters.</div>
+                    <div class="history-pagination d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
+                        <div class="history-page-info small text-muted">Showing 0 entries.</div>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Meals history pagination">
+                            <button type="button" class="btn btn-outline-secondary history-page-prev">Previous</button>
+                            <button type="button" class="btn btn-outline-secondary history-page-next">Next</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="history-block" data-history-group="activity" data-page-size="8">
+                    <h3 class="h6 fw-bold">Activity</h3>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm align-middle history-table">
+                            <thead><tr><th>Date</th><th>Type</th><th>Duration</th><th>BP Systolic</th></tr></thead>
+                            <tbody>
+                                {% for entry in model_data.recent_entries.activity %}
+                                <tr class="history-row" data-group="activity" data-date="{{ entry.date.strftime('%Y-%m-%d') }}" data-search="{{ entry.activity_type }} {{ entry.duration_minutes }} {{ entry.notes or '' }}">
+                                    <td>{{ entry.date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ entry.activity_type|title }}</td>
+                                    <td>{{ entry.duration_minutes }} min</td>
+                                    <td>{{ entry.bp_systolic if entry.bp_systolic is not none else '-' }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="4" class="text-muted">No activity history yet.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="history-empty-note d-none">No matching records for the current filters.</div>
+                    <div class="history-pagination d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
+                        <div class="history-page-info small text-muted">Showing 0 entries.</div>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Activity history pagination">
+                            <button type="button" class="btn btn-outline-secondary history-page-prev">Previous</button>
+                            <button type="button" class="btn btn-outline-secondary history-page-next">Next</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="history-block" data-history-group="sleep" data-page-size="8">
+                    <h3 class="h6 fw-bold">Sleep</h3>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0 history-table">
+                            <thead><tr><th>Date</th><th>Duration</th><th>Quality</th></tr></thead>
+                            <tbody>
+                                {% for entry in model_data.recent_entries.sleep %}
+                                <tr class="history-row" data-group="sleep" data-date="{{ entry.date.strftime('%Y-%m-%d') }}" data-search="{{ entry.sleep_quality }} {{ entry.sleep_duration }} {{ entry.notes or '' }}">
+                                    <td>{{ entry.date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ entry.sleep_duration }} hrs</td>
+                                    <td>{{ entry.sleep_quality|title }}</td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="3" class="text-muted">No sleep history yet.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="history-empty-note d-none">No matching records for the current filters.</div>
+                    <div class="history-pagination d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
+                        <div class="history-page-info small text-muted">Showing 0 entries.</div>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Sleep history pagination">
+                            <button type="button" class="btn btn-outline-secondary history-page-prev">Previous</button>
+                            <button type="button" class="btn btn-outline-secondary history-page-next">Next</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if not profile_needed %}
+<script>
+    (function () {
+        const searchInput = document.getElementById('historySearch');
+        const typeFilter = document.getElementById('historyTypeFilter');
+        const dateFilter = document.getElementById('historyDateFilter');
+        const resetBtn = document.getElementById('historyReset');
+        const blocks = Array.from(document.querySelectorAll('.history-block'));
+        const states = blocks.map(function (block) {
+            return {
+                block: block,
+                rows: Array.from(block.querySelectorAll('.history-row')),
+                pageSize: Number.parseInt(block.dataset.pageSize || '8', 10),
+                currentPage: 1,
+                emptyNote: block.querySelector('.history-empty-note'),
+                pageInfo: block.querySelector('.history-page-info'),
+                prevBtn: block.querySelector('.history-page-prev'),
+                nextBtn: block.querySelector('.history-page-next')
+            };
+        });
+
+        function escapeHtml(raw) {
+            return raw
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function highlightCell(cell, keyword) {
+            if (!cell.dataset.rawText) {
+                cell.dataset.rawText = cell.textContent;
+            }
+            const raw = cell.dataset.rawText;
+            if (!keyword) {
+                cell.innerHTML = escapeHtml(raw);
+                return;
+            }
+
+            const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp('(' + escapedKeyword + ')', 'ig');
+            cell.innerHTML = escapeHtml(raw).replace(regex, '<mark class="search-hit">$1</mark>');
+        }
+
+        function applyFilters(resetPages) {
+            const keyword = (searchInput.value || '').toLowerCase().trim();
+            const selectedType = typeFilter.value;
+            const selectedDate = dateFilter.value;
+
+            states.forEach(function (state) {
+                if (resetPages) {
+                    state.currentPage = 1;
+                }
+
+                const matches = [];
+                state.rows.forEach(function (row) {
+                    const group = row.dataset.group;
+                    const date = row.dataset.date || '';
+                    const text = (row.dataset.search || '').toLowerCase();
+
+                    const typePass = selectedType === 'all' || selectedType === group;
+                    const datePass = !selectedDate || selectedDate === date;
+                    const keywordPass = !keyword || text.indexOf(keyword) !== -1;
+
+                    if (typePass && datePass && keywordPass) {
+                        matches.push(row);
+                    }
+                });
+
+                const totalPages = Math.max(1, Math.ceil(matches.length / state.pageSize));
+                if (state.currentPage > totalPages) {
+                    state.currentPage = totalPages;
+                }
+
+                const startIndex = matches.length ? (state.currentPage - 1) * state.pageSize : 0;
+                const endIndex = Math.min(startIndex + state.pageSize, matches.length);
+                const matchIndexMap = new Map();
+                matches.forEach(function (row, index) {
+                    matchIndexMap.set(row, index);
+                });
+
+                state.rows.forEach(function (row) {
+                    const matchIndex = matchIndexMap.get(row);
+                    const isMatch = matchIndex !== undefined;
+                    const onPage = isMatch && matchIndex >= startIndex && matchIndex < endIndex;
+
+                    row.style.display = onPage ? '' : 'none';
+                    row.querySelectorAll('td').forEach(function (cell) {
+                        highlightCell(cell, isMatch && keyword ? keyword : '');
+                    });
+                });
+
+                if (state.emptyNote) {
+                    state.emptyNote.classList.toggle('d-none', matches.length !== 0 || state.rows.length === 0);
+                }
+
+                if (state.pageInfo) {
+                    if (matches.length) {
+                        state.pageInfo.textContent = `Showing ${startIndex + 1}-${endIndex} of ${matches.length} matching entries.`;
+                    } else if (state.rows.length) {
+                        state.pageInfo.textContent = 'No matching records for the current filters.';
+                    } else {
+                        state.pageInfo.textContent = 'No records yet.';
+                    }
+                }
+
+                if (state.prevBtn) {
+                    state.prevBtn.disabled = state.currentPage <= 1 || matches.length === 0;
+                }
+
+                if (state.nextBtn) {
+                    state.nextBtn.disabled = state.currentPage >= totalPages || matches.length === 0;
+                }
+            });
+        }
+
+        [searchInput, typeFilter, dateFilter].forEach(function (el) {
+            el.addEventListener('input', function () { applyFilters(true); });
+            el.addEventListener('change', function () { applyFilters(true); });
+        });
+
+        states.forEach(function (state) {
+            if (state.prevBtn) {
+                state.prevBtn.addEventListener('click', function () {
+                    state.currentPage = Math.max(1, state.currentPage - 1);
+                    applyFilters(false);
+                });
+            }
+
+            if (state.nextBtn) {
+                state.nextBtn.addEventListener('click', function () {
+                    state.currentPage += 1;
+                    applyFilters(false);
+                });
+            }
+        });
+
+        resetBtn.addEventListener('click', function () {
+            searchInput.value = '';
+            typeFilter.value = 'all';
+            dateFilter.value = '';
+            applyFilters(true);
+        });
+
+        applyFilters(true);
+    })();
+</script>
+{% endif %}
+{% endblock %}

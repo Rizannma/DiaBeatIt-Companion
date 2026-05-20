@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Overview | DiaBeatIt{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="container-fluid mt-4 mb-4 pb-4 admin-main">
+    <nav class="admin-nav mb-3">
+        <a href="{{ url_for('admin.dashboard') }}" class="admin-nav-brand">
+            <span class="nav-logo-icon"><i class="bi bi-drop-fill"></i></span>
+            <span>DiaBeatIt Admin</span>
+        </a>
+        <div class="admin-nav-links">
+            <a href="{{ url_for('admin.dashboard') }}" class="admin-nav-link active">Overview</a>
+            <a href="{{ url_for('admin.users') }}" class="admin-nav-link">User Management</a>
+            <a href="{{ url_for('admin.login_audit') }}" class="admin-nav-link">Login Audit</a>
+        </div>
+        <a class="btn btn-outline-danger btn-sm" href="{{ url_for('user.logout') }}"><i class="bi bi-box-arrow-right me-1"></i>Logout</a>
+    </nav>
+
+    <section class="row g-3 mb-4">
+        {% for card in admin_data.summary_cards %}
+        <div class="col-md-6 col-xl-3 d-flex">
+            <div class="border rounded-4 p-3 h-100 admin-metric-card w-100">
+                <div class="small text-muted admin-metric-label">{{ card.label }}</div>
+                <div class="display-6 fw-semibold mb-1">{{ card.value }}</div>
+                <div class="small text-muted">{{ card.hint }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </section>
+
+    <section class="row g-3 mb-4 align-items-stretch">
+                <div class="col-12 d-flex">
+                    <div class="card p-4 admin-panel w-100">
+                        <h2 class="h5 fw-bold mb-3">Account Health</h2>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between small mb-1"><span class="admin-ready-label">Profile readiness</span><span class="admin-ready-label">{{ admin_data.account_health.profile_completion_rate }}%</span></div>
+                            <div class="progress admin-progress admin-progress-ready">
+                                <div class="progress-bar" style="--completion: {{ admin_data.account_health.profile_completion_rate }};"></div>
+                            </div>
+                        </div>
+                        <div class="admin-stat-list">
+                            <div class="admin-stat-row"><span>Confirmed users</span><strong>{{ admin_data.account_health.confirmed_users }}</strong></div>
+                            <div class="admin-stat-row"><span>Pending verifications</span><strong>{{ admin_data.account_health.pending_verifications }}</strong></div>
+                            <div class="admin-stat-row"><span>Incomplete profiles</span><strong>{{ admin_data.account_health.profiles_pending }}</strong></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 d-flex">
+                    <div class="card p-4 admin-panel w-100">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                            <div>
+                                <h2 class="h5 fw-bold mb-1">Recent User Accounts</h2>
+                                <p class="small text-muted mb-0">Latest accounts and their profile readiness.</p>
+                            </div>
+                            <div class="admin-inline-chip">{{ admin_data.account_health.profile_completion_rate }}% profile completion</div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table align-middle admin-table mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Status</th>
+                                        <th>Profile</th>
+                                        <th>Lockout</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in admin_data.recent_users %}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-semibold">{{ item.name }}</div>
+                                            <div class="small text-muted">{{ item.email }}</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ 'text-bg-success' if item.verification_status == 'Verified' else 'text-bg-warning' }}">{{ item.verification_status }}</span>
+                                            <div class="small text-muted mt-1">{{ item.account_for }}</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ 'text-bg-success' if item.profile_status == 'Complete' else 'text-bg-secondary' }}">{{ item.profile_status }}</span>
+                                            <div class="small text-muted mt-1">Age {{ item.age }}</div>
+                                        </td>
+                                        <td>
+                                            <span class="badge {{ 'text-bg-danger' if item.lockout_active else 'text-bg-light text-dark' }}">{{ 'Active' if item.lockout_active else 'Clear' }}</span>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-muted">No users available yet.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 d-flex">
+                    <div class="card p-4 admin-panel w-100">
+                        <h2 class="h5 fw-bold mb-3">Security Controls</h2>
+                        <div class="admin-security-list">
+                            {% for control in admin_data.security_controls %}
+                            <div class="admin-security-item">
+                                <div>
+                                    <div class="fw-semibold">{{ control.label }}</div>
+                                    <div class="small text-muted">{{ control.detail }}</div>
+                                </div>
+                                <span class="badge admin-control-badge">{{ control.status }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <p class="small text-muted mt-3 mb-0">Security-related data is protected with login lockouts, OTP flows, CSRF-enabled forms, hashed passwords, and encrypted sensitive fields.</p>
+                    </div>
+                </div>
+            </section>
+
+    <section id="model-security" class="row g-3 mb-4 align-items-stretch">
+                <div class="col-lg-4 d-flex">
+                    <div class="card p-4 admin-panel w-100">
+                        <h2 class="h5 fw-bold mb-3">How the Model Works</h2>
+                        <ul class="admin-list mb-0 ps-3">
+                            {% for item in admin_data.model_overview.how_it_predicts %}
+                            <li class="mb-2">{{ item }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 d-flex">
+                    <div class="card p-4 admin-panel w-100">
+                        <h2 class="h5 fw-bold mb-3">How It Was Trained</h2>
+                        <div class="admin-timeline">
+                            <div class="admin-timeline-item">
+                                <div class="admin-timeline-dot"></div>
+                                <div>
+                                    <div class="fw-semibold">Training data</div>
+                                    <div class="small text-muted">Historical app data was transformed into structured tabular features.</div>
+                                </div>
+                            </div>
+                            <div class="admin-timeline-item">
+                                <div class="admin-timeline-dot"></div>
+                                <div>
+                                    <div class="fw-semibold">Preprocessing</div>
+                                    <div class="small text-muted">Features were scaled with the saved preprocessing objects used during training.</div>
+                                </div>
+                            </div>
+                            <div class="admin-timeline-item">
+                                <div class="admin-timeline-dot"></div>
+                                <div>
+                                    <div class="fw-semibold">Saved artifacts</div>
+                                    <div class="small text-muted">Both models were serialized with joblib and loaded at runtime.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 d-flex">
+                    <div class="card p-4 admin-panel w-100">
+                        <h2 class="h5 fw-bold mb-3">Models Used</h2>
+                        <div class="admin-model-list">
+                            {% for model in admin_data.model_overview.models_used %}
+                            <div class="admin-model-card">
+                                <div class="small text-muted">{{ model }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-12 d-flex">
+                    <div class="card p-4 admin-panel w-100">
+                        <h2 class="h5 fw-bold mb-3">How Risk Classification and Glucose Trend Work</h2>
+                        <div class="row g-3">
+                            <div class="col-md-6 d-flex">
+                                <div class="admin-model-card w-100 h-100">
+                                    <div class="small text-muted">Risk Was Classified</div>
+                                    <div class="h5 fw-bold mt-1 mb-2">Profile + Lifestyle Feature Classification</div>
+                                    <ul class="admin-list mb-0 ps-3">
+                                        <li>The system combines profile fields and recent logs into one feature vector.</li>
+                                        <li>Features are normalized using the saved classification scaler.</li>
+                                        <li>The classifier predicts risk probability and maps it to Low or High risk.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6 d-flex">
+                                <div class="admin-model-card w-100 h-100">
+                                    <div class="small text-muted">Glucose Trend Works</div>
+                                    <div class="h5 fw-bold mt-1 mb-2">Next-Value Trend Regression</div>
+                                    <ul class="admin-list mb-0 ps-3">
+                                        <li>The trend model reads transformed behavioral and biomarker inputs.</li>
+                                        <li>The regression scaler aligns runtime input shape with trained features.</li>
+                                        <li>The regressor estimates the next glucose value used for trend insights.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+    <section class="row g-3 mb-4 align-items-stretch">
+                <div class="col-lg-6 d-flex">
+                    <div class="card p-4 admin-panel w-100">
+                        <h2 class="h5 fw-bold mb-3">Recent Health Events</h2>
+                        <div class="admin-feed">
+                            {% for item in admin_data.recent_feed %}
+                            <div class="admin-feed-item">
+                                <div class="admin-feed-kind">{{ item.kind }}</div>
+                                <div class="admin-feed-body">
+                                    <div class="fw-semibold">{{ item.user }}</div>
+                                    <div class="small text-muted">{{ item.detail }}</div>
+                                </div>
+                                <div class="small text-muted">{{ item.created_at.strftime('%b %d, %H:%M') }}</div>
+                            </div>
+                            {% else %}
+                            <div class="text-muted">No health entries recorded yet.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6 d-flex">
+                    <div class="card p-4 admin-panel admin-data-panel w-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h2 class="h5 fw-bold mb-1">Data Inventory</h2>
+                                <p class="small text-muted mb-0">Tracking volume across the four entry types.</p>
+                            </div>
+                            <div class="admin-inline-chip">{{ admin_data.summary_cards[3].value }} total entries</div>
+                        </div>
+                        <div class="admin-data-grid">
+                            {% for item in admin_data.data_inventory %}
+                            <div class="admin-data-card h-100 w-100 text-center">
+                                <div class="small text-muted">{{ item.label }}</div>
+                                <div class="h4 fw-bold mb-0">{{ item.count }}</div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+    <section id="system-health" class="row g-3 mb-4 align-items-stretch">
+                <div class="col-12 d-flex">
+                    <div class="card p-4 admin-panel w-100">
+                        <h2 class="h5 fw-bold mb-3">System Health</h2>
+                        <div class="row g-3">
+                            {% for item in admin_data.system_health %}
+                            <div class="col-md-4 d-flex">
+                                <div class="admin-health-card w-100">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="fw-semibold">{{ item.service }}</div>
+                                        <span class="badge {{ 'text-bg-success' if item.status == 'Online' else 'text-bg-warning' if item.status == 'Degraded' else 'text-bg-danger' }}">{{ item.status }}</span>
+                                    </div>
+                                    <div class="small text-muted">{{ item.detail }}</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </section>
+</main>
+{% endblock %}

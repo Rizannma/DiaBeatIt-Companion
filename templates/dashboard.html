@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | DiaBeatIt{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid mt-4 mb-4 pb-4">
+
+    {% if profile_needed %}
+    <div class="alert alert-warning d-flex align-items-center" role="alert">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        <div>
+            Welcome! Please complete your profile to unlock personalized AI health forecasting.
+        </div>
+        <a href="{{ url_for('user.profile') }}" class="btn btn-sm btn-primary ms-auto">
+            Go to Profile
+        </a>
+    </div>
+    {% endif %}
+
+    <div class="dashboard-hero p-4 mb-4">
+        <div class="d-flex flex-wrap gap-3 align-items-start justify-content-between">
+            <div>
+                <h2 class="h4 fw-bold mb-1">Health Dashboard</h2>
+                <p class="subtitle mb-0">Clear view of your current status and model output.</p>
+            </div>
+            {% if not profile_needed %}
+           <div class="dashboard-hero-actions d-flex align-items-center gap-3">
+
+    <!-- User Manual -->
+    <button class="btn btn-outline-secondary btn-sm" type="button"
+        data-bs-toggle="modal" data-bs-target="#userManualModal">
+        <i class="bi bi-journal-text me-1"></i>
+        Manual
+    </button>
+
+    <!-- Notification Bell (clean version) -->
+    <div class="notification-wrapper position-relative">
+
+        <button id="notification-bell"
+            class="notification-bell-btn"
+            title="Notifications"
+            aria-label="Notifications">
+
+            <i class="bi bi-bell"></i>
+
+            <span id="notification-badge" class="notification-badge">0</span>
+        </button>
+
+    </div>
+
+</div>
+            {% endif %}
+        </div>
+        {% if not profile_needed and model_data %}
+        <div id="dashboardConnectionBanner" class="alert alert-info d-flex flex-wrap gap-2 align-items-center mt-3 mb-0" role="status" aria-live="polite" data-last-updated="{{ model_data.generated_at.isoformat() }}">
+            <i class="bi bi-wifi me-1"></i>
+            <span id="dashboardConnectionMessage">Checking connection status...</span>
+            <span class="badge text-bg-light text-dark ms-auto">Last updated: {{ model_data.generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if not profile_needed %}
+    {% if model_data.prediction_error %}
+    <div class="alert alert-danger mb-4" role="alert">
+        {{ model_data.prediction_error }}
+    </div>
+    {% else %}
+    <div class="card p-4 mb-4 streak-card streak-tier-{{ model_data.gamification.tier_slug }}" id="streakCard" data-user-id="{{ user.id }}" data-streak="{{ model_data.gamification.current_streak }}" data-tier="{{ model_data.gamification.tier_slug }}">
+        <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="streak-fire-wrap" aria-hidden="true">
+                    <i class="bi bi-fire streak-fire-icon"></i>
+                    <span class="streak-fire-glow"></span>
+                </div>
+                <div>
+                    <div class="small text-uppercase text-muted fw-semibold mb-1">Logging streak</div>
+                    <div class="d-flex align-items-end gap-2 flex-wrap">
+                        <div class="display-6 fw-semibold mb-0">{{ model_data.gamification.current_streak }} {% if model_data.gamification.current_streak == 1 or model_data.gamification.current_streak == 0 %}day{% else %}days{% endif %}</div>
+                        <span class="streak-chip">{{ model_data.gamification.tier_label }}</span>
+                    </div>
+                    <p class="subtitle mb-0 mt-2">Keep your fire alive daily. Colors evolve as your streak reaches 1 month and 3 months.</p>
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <div class="streak-stat">
+                    <div class="small text-muted">Active days</div>
+                    <div class="h5 fw-bold mb-0">{{ model_data.gamification.total_active_days }}</div>
+                </div>
+                <div class="streak-stat">
+                    <div class="small text-muted">Best streak</div>
+                    <div class="h5 fw-bold mb-0">{{ model_data.gamification.best_streak }} {% if model_data.gamification.best_streak == 1 or model_data.gamification.best_streak == 0 %}day{% else %}days{% endif %}</div>
+                </div>
+                <div class="streak-stat">
+                    <div class="small text-muted">Next milestone</div>
+                    <div class="h5 fw-bold mb-0">{{ model_data.gamification.next_milestone }} {% if model_data.gamification.next_milestone == 1 or model_data.gamification.next_milestone == 0 %}day{% else %}days{% endif %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="streakPopup" class="streak-popup" role="status" aria-live="polite" data-tier="{{ model_data.gamification.tier_slug }}">
+        <div class="streak-popup-inner">
+            <i class="bi bi-fire streak-popup-icon"></i>
+            <div>
+                <div class="streak-popup-title">Streak milestone reached</div>
+                <div class="streak-popup-text" id="streakPopupText">{{ model_data.gamification.current_streak }} day streak</div>
+            </div>
+        </div>
+    </div>
+
+        <div class="row g-3 mb-4">
+        <div class="col-md-6 col-xl-3">
+            <div class="border rounded-4 p-3 h-100 kpi-card metric-card">
+                <div class="text-muted small">Risk Score</div>
+                <div class="display-6 fw-semibold">{{ model_data.predictions.risk_score }}%</div>
+                <span class="badge {{ 'text-bg-danger' if model_data.predictions.risk_label == 'High Risk' else 'text-bg-success' }}">
+                    {{ model_data.predictions.risk_label }}
+                </span>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="border rounded-4 p-3 h-100 kpi-card metric-card">
+                <div class="text-muted small">Predicted Next Glucose</div>
+                <div class="display-6 fw-semibold">{{ model_data.predictions.predicted_next_glucose }}</div>
+                <div class="small text-muted">mg/dL</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="border rounded-4 p-3 h-100 kpi-card metric-card">
+                <div class="text-muted small">7-Day Avg Glucose</div>
+                <div class="display-6 fw-semibold">{{ '%.1f'|format(model_data.weekly_metrics.avg_glucose) }}</div>
+                <div class="small text-muted">mg/dL</div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="border rounded-4 p-3 h-100 kpi-card metric-card">
+                <div class="text-muted small">7-Day Activity</div>
+                <div class="display-6 fw-semibold">{{ model_data.weekly_metrics.total_activity_minutes|int }}</div>
+                <div class="small text-muted">minutes</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if not profile_needed and not model_data.prediction_error %}
+    <div class="row g-3 mb-4 align-items-stretch">
+        <div class="col-lg-6">
+            <div class="card p-4 h-100">
+                <h3 class="h5 fw-bold mb-3">Top Contributing Factors</h3>
+                {% for factor in model_data.explainability.top_factors %}
+                <div class="mb-3 factor-row">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div class="fw-semibold">{{ factor.factor }}</div>
+                        <span class="small text-muted">Impact {{ factor.impact }}%</span>
+                    </div>
+                    <div class="progress" role="progressbar" aria-label="Impact" aria-valuenow="{{ factor.impact }}" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar bg-danger" style="--impact: {{ factor.impact }}; width: calc(var(--impact) * 1%);"></div>
+                    </div>
+                    <div class="small text-muted mt-1">{{ factor.value }}</div>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No explainability factors available yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card p-4 h-100 quick-status-card">
+                <h3 class="h5 fw-bold mb-3">Quick Status</h3>
+                <div class="row g-3 align-items-stretch quick-status-grid">
+                    <div class="col-sm-6 d-flex">
+                        <div class="status-item w-100">
+                            <div class="small text-muted">Sleep (7-Day Avg)</div>
+                            <div class="h5 fw-bold mb-0">{{ model_data.weekly_summary.avg_sleep_hours }} hrs</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 d-flex">
+                        <div class="status-item w-100">
+                            <div class="small text-muted">Diet Score (7-Day Avg)</div>
+                            <div class="h5 fw-bold mb-0">{{ model_data.weekly_summary.avg_diet_score }}/10</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 d-flex">
+                        <div class="status-item w-100">
+                            <div class="small text-muted">Glucose Change vs Last Week</div>
+                            <div class="h5 fw-bold mb-0 {{ 'text-danger' if model_data.weekly_summary.glucose_change_vs_last_week > 0 else 'text-success' }}">
+                                {{ '+' if model_data.weekly_summary.glucose_change_vs_last_week > 0 else '' }}{{ model_data.weekly_summary.glucose_change_vs_last_week }} mg/dL
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 d-flex">
+                        <div class="status-item w-100">
+                            <div class="small text-muted">Monthly Active Days</div>
+                            <div class="h5 fw-bold mb-0">{{ model_data.monthly_summary.active_days }} days</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-4 mb-4">
+        <h3 class="h5 fw-bold mb-3">Recent Glucose Readings</h3>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>Level (mg/dL)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in model_data.recent_entries.glucose[:5] %}
+                    <tr>
+                        <td>{{ entry.date.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ entry.time.strftime('%H:%M') }}</td>
+                        <td>{{ entry.reading_type.replace('_', ' ')|title }}</td>
+                        <td>{{ entry.glucose_level }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-muted">No glucose entries yet. Add data in Track to improve model quality.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="modal fade" id="userManualModal" tabindex="-1" aria-labelledby="userManualModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content manual-modal">
+                <div class="modal-header manual-header">
+                    <h4 class="modal-title h5 manual-title" id="userManualModalLabel">DiaBeatIt User Manual</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="manual-warning mb-3">
+                        <strong>Important:</strong> DiaBeatIt is an AI companion for tracking and analysis based on your inputs. It does not diagnose disease. Clinical diagnosis and treatment decisions must come from licensed doctors.
+                    </div>
+
+                    <div class="manual-grid">
+                        <section class="manual-panel">
+                            <h5 class="h6 fw-bold">How the model works</h5>
+                            <ul class="ps-3 mb-0">
+                                <li>Builds features from profile biomarkers and recent daily logs.</li>
+                                <li>Normalizes values using saved scalers from training.</li>
+                                <li>Generates risk score with a classifier and next-glucose with a regressor.</li>
+                            </ul>
+                        </section>
+
+                        <section class="manual-panel">
+                            <h5 class="h6 fw-bold">How each result is produced</h5>
+                            <ul class="ps-3 mb-0">
+                                <li>Risk Score: based on profile markers, fasting glucose lags, and weekly trends.</li>
+                                <li>Predicted Next Glucose: uses profile plus recent meal, activity, sleep, and glucose behavior.</li>
+                                <li>Top Contributing Factors: ranks inputs by estimated pressure on risk output.</li>
+                                <li>Personalized Recommendations: created from risk level, top factors, and weekly habits.</li>
+                            </ul>
+                        </section>
+
+                        <section class="manual-panel">
+                            <h5 class="h6 fw-bold">How inputs are evaluated</h5>
+                            <ul class="ps-3 mb-0">
+                                <li>Profile: HbA1c, cholesterol, triglycerides, body measurements, and medical history.</li>
+                                <li>Glucose: fasting and other readings with recency and rolling averages.</li>
+                                <li>Lifestyle: activity minutes, sleep patterns, and meal quality trends.</li>
+                            </ul>
+                        </section>
+
+                        <section class="manual-panel">
+                            <h5 class="h6 fw-bold">How often to update</h5>
+                            <ul class="ps-3 mb-0">
+                                <li>Glucose: daily, especially fasting every morning.</li>
+                                <li>Meals, activity, sleep: log daily for stable weekly analysis.</li>
+                                <li>HbA1c: after each new lab result, typically every 2 to 3 months.</li>
+                                <li>Cholesterol/triglycerides: on each new lab panel, often every 6 to 12 months.</li>
+                            </ul>
+                        </section>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Got it</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

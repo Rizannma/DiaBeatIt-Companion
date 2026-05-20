@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">DiaBeatIt App Icon</title>
+  <desc id="desc">A red droplet over a dark background.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#1f2937"/>
+    </linearGradient>
+    <linearGradient id="drop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff1744"/>
+      <stop offset="100%" stop-color="#b20000"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg)"/>
+  <path d="M256 88c-62 78-128 136-128 224 0 74 58 128 128 128s128-54 128-128c0-88-66-146-128-224z" fill="url(#drop)"/>
+  <circle cx="226" cy="244" r="28" fill="#ffd6dd" opacity="0.7"/>
+</svg>

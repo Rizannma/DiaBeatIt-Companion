@@ -1,0 +1,76 @@
+DiaBeatIt Technology Summary
+
+1) ML libraries used
+
+- joblib
+  - Used in [routes/prediction_service.py](routes/prediction_service.py) to load serialized model and scaler artifacts: `risk_model.pkl`, `glucose_model.pkl`, `scaler_class.pkl`, and `scaler_reg.pkl`.
+  - Also used when the loaded models are called during prediction flow.
+
+- numpy
+  - Used in [routes/prediction_service.py](routes/prediction_service.py) to build the final feature arrays with `np.array(..., dtype=float).reshape(1, -1)`.
+
+- scikit-learn
+  - Used through the saved model artifacts loaded in [routes/prediction_service.py](routes/prediction_service.py).
+  - The runtime prediction code uses scikit-learn style methods such as `transform()`, `predict_proba()`, and `predict()` on the loaded scaler/model objects.
+
+2) Python packages used
+
+- Flask
+  - Used in [app.py](app.py), [routes/auth.py](routes/auth.py), [routes/user.py](routes/user.py), [routes/admin.py](routes/admin.py), and [routes/verification.py](routes/verification.py).
+  - Handles routing, request/response flow, rendering templates, redirects, flash messages, sessions, and blueprints.
+
+- Flask-SQLAlchemy
+  - Used in [models.py](models.py) and throughout the route files for `db.session` queries, inserts, updates, and commits.
+
+- Flask-Login
+  - Used in [models.py](models.py) for `LoginManager` and `UserMixin`.
+  - Used in [routes/auth.py](routes/auth.py), [routes/user.py](routes/user.py), [routes/admin.py](routes/admin.py), and [routes/verification.py](routes/verification.py) for `login_required`, `current_user`, `login_user`, and `logout_user`.
+
+- Flask-WTF / WTForms
+  - Used in [forms.py](forms.py) to define `SignupForm`, `LoginForm`, `ConfirmForm`, `ResetPasswordForm`, and `ProfileForm`.
+  - The forms rely on WTForms validators such as `DataRequired`, `Email`, `EqualTo`, `Length`, `Optional`, and `NumberRange`.
+
+- Werkzeug
+  - Used in [routes/auth.py](routes/auth.py), [routes/verification.py](routes/verification.py), and [utils.py](utils.py) for password hashing.
+  - Used in [app.py](app.py) for `ProxyFix`.
+
+- cryptography
+  - Used in [models.py](models.py) for field encryption/decryption with `Fernet` and `InvalidToken`.
+
+- python-dotenv
+  - Used in [config.py](config.py) to load environment variables with `load_dotenv()`.
+
+- email-validator
+  - Used indirectly by the `Email()` validator in [forms.py](forms.py).
+
+- sib-api-v3-sdk
+  - Used in [email_service.py](email_service.py) for Brevo/Sendinblue transactional email delivery.
+
+3) APIs used
+
+- Brevo transactional email API
+  - Implemented in [email_service.py](email_service.py) through `sib_api_v3_sdk`, `Configuration`, `ApiClient`, `TransactionalEmailsApi`, and `SendSmtpEmail`.
+  - Called from [routes/auth.py](routes/auth.py) for signup verification and password reset OTP emails.
+  - Called from [routes/verification.py](routes/verification.py) for account confirmation OTP, login OTP, and reset-password OTP emails.
+  - Called from [routes/user.py](routes/user.py) for sending report emails to a doctor.
+
+- Internal Flask route APIs
+  - Authentication and OTP flows are exposed through route handlers in [routes/auth.py](routes/auth.py) and [routes/verification.py](routes/verification.py).
+  - User dashboard, analytics, reports, profile, and tracking endpoints are in [routes/user.py](routes/user.py).
+  - Admin dashboard and user-management endpoints are in [routes/admin.py](routes/admin.py).
+
+4) Data visualization used
+
+- Chart.js
+  - Loaded from a CDN in [templates/analytics.html](templates/analytics.html).
+  - Used to render the `predictedTrendChart` and `correlationChart` line charts.
+  - The chart data is prepared in [routes/user.py](routes/user.py) inside `_build_model_context()` and passed to the template as `model_data.chart_data`.
+
+- Canvas-based chart rendering
+  - The analytics page uses `<canvas>` elements in [templates/analytics.html](templates/analytics.html) as the drawing surface for Chart.js.
+
+5) Short notes
+
+- The project’s core prediction workflow is centered in [routes/prediction_service.py](routes/prediction_service.py).
+- The main email integration is Brevo/Sendinblue, not a generic SMTP library.
+- I did not find direct usage of plotting libraries like Matplotlib, Seaborn, Plotly, or Bokeh in the current source tree.

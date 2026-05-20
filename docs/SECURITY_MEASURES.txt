@@ -1,0 +1,7 @@
+Security measures for DiaBeatIt
+
+1. Store secrets in environment variables, not in source control.
+2. Keep Firebase service account JSON files out of the repository.
+3. Prefer HTTPS in production and enable proxy header trust only behind a real reverse proxy.
+4. Rotate API keys and passwords if they were ever exposed.
+5. Keep local database credentials restricted to development use.

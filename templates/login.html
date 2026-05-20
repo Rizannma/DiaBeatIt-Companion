@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | DiaBeatIt</title>
+    <link rel="manifest" href="{{ url_for('manifest') }}">
+    <meta name="theme-color" content="#111827">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="DiaBeatIt">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icons/icon.svg') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/static/css/signup.css"> </head>
+<body>
+
+<div class="container py-5">
+     <div class="auth-wrapper">
+            
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <i class="bi bi-drop-fill"></i>
+                </div>
+                <h3 class="fw-bold m-0">DiaBeatIt</h3>
+                <p class="text-muted small">Your AI Diabetes Companion</p>
+            </div>
+
+        <div class="card p-4 shadow-sm border-0 rounded-4">
+            <h2 class="fw-bold h4">Welcome Back</h2>
+            <p class="text-muted small mb-4">Sign in to continue managing your health</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'success' if category == 'success' else 'danger' if category == 'danger' else 'info' }} alert-dismissible fade show" role="alert">
+                            {% if category == 'success' %}
+                                <i class="bi bi-check-circle-fill"></i>
+                            {% elif category == 'danger' %}
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                            {% else %}
+                                <i class="bi bi-info-circle-fill"></i>
+                            {% endif %}
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
+                {{ form.hidden_tag() }}
+
+                <div class="mb-3">
+                    <label for="email" class="form-label small fw-bold">Email Address</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope text-muted"></i></span>
+                        {{ form.email(class="form-control bg-light border-start-0", placeholder="you@example.com", autocomplete="email") }}
+                    </div>
+                    {% if form.email.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.email.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label small fw-bold">Password</label>
+                    <div class="input-group position-relative">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock text-muted"></i></span>
+                        {{ form.password(class="form-control bg-light border-start-0", placeholder="Enter your password", autocomplete="current-password") }}
+                        <button type="button" class="btn btn-light border-0 password-toggle" id="passwordToggle" tabindex="-1">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                    {% if form.password.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.password.errors %}{{ error }}{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="alert alert-info py-3" role="alert" style="font-size: 0.9rem;">
+                    <strong>Security Notice:</strong> Your first login requires email verification. After that, you will be asked to re-verify your account every 15 days to keep access secure.
+                </div>
+
+                <button type="submit" class="btn btn-dark w-100 py-2 fw-bold mb-3" style="background-color: #0a0a0b;" id="loginBtn">
+                    <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                    Sign In
+                </button>
+            </form>
+
+            <div class="text-center">
+                <p class="small text-muted">Don't have an account? <a href="{{ url_for('auth.signup') }}" class="text-danger fw-bold text-decoration-none">Sign up for free</a></p>
+                <p class="small text-muted"><a href="{{ url_for('auth.forgot_password') }}" class="text-muted fw-bold text-decoration-none">Forgot Password?</a></p>
+            </div>
+        
+        <p class="text-center text-muted mt-4" style="font-size: 0.7rem;">
+            By signing in, you agree to our Terms of Service and Privacy Policy
+        </p>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/login.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pwa-register.js') }}"></script>
+</body>
+</html>

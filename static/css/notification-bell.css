@@ -1,0 +1,60 @@
+/* ===== MODERN NOTIFICATION BELL (NEW UI) ===== */
+
+.notification-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+/* Bell button */
+.notification-bell-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1.4rem;
+    color: #555;
+    position: relative;
+    padding: 6px;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.notification-bell-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    transform: scale(1.08);
+    color: #222;
+}
+
+.notification-bell-btn:active {
+    transform: scale(0.95);
+}
+
+/* Badge */
+.notification-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: #ff3b30;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    min-width: 16px;
+    height: 16px;
+    padding: 2px 5px;
+    border-radius: 999px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+/* Show badge when active */
+.notification-badge.show {
+    display: flex;
+}
+
+/* Enabled state */
+.notification-bell-btn.enabled {
+    color: #28a745;
+}

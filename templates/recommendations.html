@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Recommendations | DiaBeatIt{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 mb-4 pb-4">
+    {% if profile_needed %}
+    <div class="alert alert-warning d-flex align-items-center" role="alert">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        <div>Complete your profile to unlock personalized recommendations.</div>
+        <a href="{{ url_for('user.profile') }}" class="btn btn-sm btn-primary ms-auto">Go to Profile</a>
+    </div>
+    {% else %}
+    <div class="alert alert-info d-flex flex-wrap align-items-start gap-2" role="alert">
+        <i class="bi bi-clipboard2-pulse-fill me-1"></i>
+        <div>
+            <div class="fw-semibold">Rule-based guidance</div>
+            <div class="small">{{ recommendation_source_note }}</div>
+        </div>
+    </div>
+    <div class="row g-3 mb-3">
+        <div class="col-xl-7">
+            <div class="row g-3">
+                {% for rec in recommendations_data %}
+                <div class="col-12">
+                    <div class="card p-4 recommendation-card">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                            <div>
+                                <h3 class="h6 fw-bold mb-1">{{ rec.title }}</h3>
+                                <div class="small text-muted">{{ rec.category }}</div>
+                            </div>
+                            <span class="badge {{ 'text-bg-danger' if rec.priority == 'High' else 'text-bg-warning' if rec.priority == 'Medium' else 'text-bg-secondary' }}">{{ rec.priority }}</span>
+                        </div>
+                        <p class="mb-2">{{ rec.summary }}</p>
+                        <ul class="mb-0 ps-3">
+                            {% for action in rec.actions %}
+                            <li class="mb-1">{{ action }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% else %}
+                <div class="col-12">
+                    <div class="card p-4">
+                        <p class="mb-0 text-muted">Not enough data yet for personalized recommendations. Add more entries in Track.</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="col-xl-5">
+            <div class="card p-4 mb-3">
+                <h3 class="h6 fw-bold mb-2">Current Prediction Snapshot</h3>
+                <div class="d-flex justify-content-between mb-2"><span class="small text-muted">Risk Score</span><strong>{{ model_data.predictions.risk_score }}%</strong></div>
+                <div class="d-flex justify-content-between mb-2"><span class="small text-muted">Risk Label</span><strong>{{ model_data.predictions.risk_label }}</strong></div>
+                <div class="d-flex justify-content-between"><span class="small text-muted">Predicted Next Glucose</span><strong>{{ model_data.predictions.predicted_next_glucose }} mg/dL</strong></div>
+                <div class="small text-muted mt-2">If this is a fasting reading, WHO guidance treats below 100 mg/dL as normal, 100 to 125 mg/dL as impaired fasting glucose, and 126 mg/dL or higher as diabetes range on repeat testing.</div>
+            </div>
+            <div class="card p-4">
+                <h3 class="h6 fw-bold mb-2">Top Model Factors</h3>
+                {% for factor in model_data.explainability.top_factors %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between small mb-1"><span>{{ factor.factor }}</span><span>{{ factor.impact }}% · {{ factor.impact_label }}</span></div>
+                    <div class="progress">
+                        <div class="progress-bar bg-danger" style="width: {{ factor.impact }}%"></div>
+                    </div>
+                    <div class="small text-muted mt-1">{{ factor.why }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

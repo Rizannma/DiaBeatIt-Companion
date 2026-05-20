@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Reports | DiaBeatIt{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 mb-4 pb-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="row mb-3">
+        <div class="col-12">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    {% if profile_needed %}
+    <div class="alert alert-warning d-flex align-items-center" role="alert">
+        <i class="bi bi-info-circle-fill me-2"></i>
+        <div>Complete your profile before generating model-based reports.</div>
+        <a href="{{ url_for('user.profile') }}" class="btn btn-sm btn-primary ms-auto">Go to Profile</a>
+    </div>
+    {% else %}
+    <div class="row g-3">
+        <div class="col-12">
+            <div class="card p-4 report-shell">
+                <div class="d-flex flex-wrap gap-3 justify-content-end align-items-start mb-3">
+                    <div class="d-flex gap-2 flex-wrap report-actions no-print justify-content-end w-100">
+                        <button type="button" class="btn btn-primary" id="exportPdfBtn"><i class="bi bi-file-earmark-pdf me-1"></i>Export as PDF</button>
+                        <button type="button" class="btn btn-outline-secondary" id="openGmailBtn"><i class="bi bi-envelope-arrow-up me-1"></i>Open in Gmail</button>
+                    </div>
+                </div>
+
+                {% if model_data.prediction_error %}
+                <div class="alert alert-danger">{{ model_data.prediction_error }}</div>
+                {% else %}
+                <div id="reportPrintable" class="print-surface">
+                    <div class="report-brand d-flex align-items-center justify-content-between mb-3">
+                        <div>
+                            <h3 class="h5 fw-bold mb-1">DiaBeatIt Clinical Summary</h3>
+                            <div class="small text-muted">For patient {{ user.subject_name }}</div>
+                        </div>
+                        <div class="small text-muted">Generated {{ model_data.generated_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-muted">Risk Classification</div>
+                                <div class="h5 fw-bold mb-0">{{ model_data.predictions.risk_label }}</div>
+                                <div class="small text-muted">{{ model_data.predictions.risk_score }}%</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-muted">Predicted Next Glucose</div>
+                                <div class="h5 fw-bold mb-0">{{ model_data.predictions.predicted_next_glucose }} mg/dL</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded-3 p-3 h-100">
+                                <div class="small text-muted">Primary Insight</div>
+                                <div class="small">{{ model_data.explainability.top_factors[0].factor if model_data.explainability.top_factors else 'Not enough data yet' }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table align-middle report-table">
+                            <tbody>
+                                <tr><th style="width: 35%;">7-Day Average Glucose</th><td>{{ '%.1f'|format(model_data.weekly_metrics.avg_glucose) }} mg/dL</td></tr>
+                                <tr><th>7-Day Activity</th><td>{{ model_data.weekly_metrics.total_activity_minutes|int }} minutes</td></tr>
+                                <tr><th>7-Day Average Sleep</th><td>{{ '%.1f'|format(model_data.weekly_metrics.avg_sleep_hours) }} hours</td></tr>
+                                <tr><th>7-Day Average Diet Score</th><td>{{ '%.1f'|format(model_data.weekly_metrics.avg_diet_score) }}/10</td></tr>
+                                <tr><th>Monthly Active Days</th><td>{{ model_data.monthly_summary.active_days }} days</td></tr>
+                                <tr><th>30-Day Average Glucose</th><td>{{ model_data.monthly_summary.avg_glucose_30d }} mg/dL</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card p-3 mt-3 no-print">
+                    <h3 class="h6 fw-bold mb-2">Share Report With Doctor</h3>
+                    <form method="POST" action="{{ url_for('user.share_report_email') }}" class="row g-2">
+                        <div class="col-md-5">
+                            <label class="form-label">Doctor Email</label>
+                            <input type="email" name="doctor_email" class="form-control" placeholder="doctor@example.com" required>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label">Optional Note</label>
+                            <input type="text" name="doctor_note" class="form-control" placeholder="Any additional context for your doctor">
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button class="btn btn-primary w-100" type="submit">Send</button>
+                        </div>
+                    </form>
+                    <div class="small text-muted mt-2">Tip: Export to PDF first, then attach it in Gmail if needed.</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if not profile_needed and model_data and not model_data.prediction_error %}
+<script>
+    (function () {
+        const exportBtn = document.getElementById('exportPdfBtn');
+        const gmailBtn = document.getElementById('openGmailBtn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', function () {
+                window.print();
+            });
+        }
+        if (gmailBtn) {
+            gmailBtn.addEventListener('click', function () {
+                const subject = encodeURIComponent('DiaBeatIt report for {{ user.subject_name }} - {{ model_data.generated_at.strftime("%Y-%m-%d") }}');
+                const body = encodeURIComponent(
+                    'Patient: {{ user.subject_name }}\n' +
+                    'Risk: {{ model_data.predictions.risk_label }} ({{ model_data.predictions.risk_score }}%)\n' +
+                    'Predicted Next Glucose: {{ model_data.predictions.predicted_next_glucose }} mg/dL\n' +
+                    '7-Day Avg Glucose: {{ model_data.weekly_summary.avg_glucose }} mg/dL\n\n' +
+                    'Attach the exported PDF from DiaBeatIt when sending this email.'
+                );
+                window.open('https://mail.google.com/mail/?view=cm&fs=1&su=' + subject + '&body=' + body, '_blank');
+            });
+        }
+    })();
+</script>
+{% endif %}
+{% endblock %}

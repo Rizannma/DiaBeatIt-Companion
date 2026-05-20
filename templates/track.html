@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Track | DiaBeatIt{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/track.css') }}">
+{% endblock %}
+{% block content %}
+<div class="container-fluid mt-4 pb-5">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="row mb-3">
+            <div class="col-12">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'info' }} alert-dismissible fade show rounded-4" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+    {% endwith %}
+
+            <div class="card p-4 mb-4">
+                <div class="track-header">
+                    <div>
+                        <h2 class="h4 fw-bold mb-1">Track Your Health</h2>
+                        <p class="text-muted mb-0">Log glucose, meals, activity, and sleep with a clean, responsive interface.</p>
+                    </div>
+
+                </div>
+
+                <div id="trackOfflineStatus" class="alert alert-warning d-none mt-3 mb-0" role="status" aria-live="polite"></div>
+
+                <ul class="nav nav-tabs nav-tabs-custom mt-4" id="trackTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="glucose-tab" data-bs-toggle="tab" data-bs-target="#glucose" type="button" role="tab" aria-controls="glucose" aria-selected="true">Glucose</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="meal-tab" data-bs-toggle="tab" data-bs-target="#meal" type="button" role="tab" aria-controls="meal" aria-selected="false">Meal</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="activity-tab" data-bs-toggle="tab" data-bs-target="#activity" type="button" role="tab" aria-controls="activity" aria-selected="false">Activity</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="sleep-tab" data-bs-toggle="tab" data-bs-target="#sleep" type="button" role="tab" aria-controls="sleep" aria-selected="false">Sleep</button>
+                    </li>
+                </ul>
+
+                <form id="trackForm" method="POST">
+                    <input type="hidden" id="entryType" name="entry_type" value="glucose">
+                    <div class="tab-content mt-4" id="trackTabContent">
+                        <div class="tab-pane fade show active" id="glucose" role="tabpanel" aria-labelledby="glucose-tab">
+                            <div class="">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="glucose-date">Date <span class="text-danger">*</span></label>
+                                        <input type="date" id="glucose-date" name="glucose_date" class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="glucose-time">Time <span class="text-danger">*</span></label>
+                                        <input type="time" id="glucose-time" name="glucose_time" class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="glucose-level">Glucose level (mg/dL) <span class="text-danger">*</span></label>
+                                        <input type="number" step="0.1" id="glucose-level" name="glucose_level" class="form-control" placeholder="e.g. 120">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="reading-type">Reading type <span class="text-danger">*</span></label>
+                                        <select id="reading-type" name="reading_type" class="form-select">
+                                            <option selected disabled>Select type</option>
+                                            <option value="fasting">Fasting</option>
+                                            <option value="before_meal">Before meal</option>
+                                            <option value="after_meal">After meal (1-2 hrs)</option>
+                                            <option value="bedtime">Bedtime</option>
+                                            <option value="random">Random</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row g-3 mt-1">
+                                    <div class="col-12">
+                                        <label class="form-label" for="glucose-notes">Notes</label>
+                                        <textarea id="glucose-notes" name="glucose_notes" class="form-control" rows="3" placeholder="Add any additional context..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="meal" role="tabpanel" aria-labelledby="meal-tab">
+                            <div class="">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="meal-date">Date <span class="text-danger">*</span></label>
+                                        <input type="date" id="meal-date" name="meal_date" class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="meal-time">Time <span class="text-danger">*</span></label>
+                                        <input type="time" id="meal-time" name="meal_time" class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="meal-type">Meal type <span class="text-danger">*</span></label>
+                                        <select id="meal-type" name="meal_type" class="form-select">
+                                            <option selected disabled>Select meal</option>
+                                            <option value="breakfast">Breakfast</option>
+                                            <option value="lunch">Lunch</option>
+                                            <option value="dinner">Dinner</option>
+                                            <option value="snack">Snack</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label" for="food-items">Food items <span class="text-danger">*</span></label>
+                                        <textarea id="food-items" name="food_items" class="form-control" rows="3" placeholder="List what you ate..."></textarea>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="carbohydrates">Carbohydrates (g)</label>
+                                        <input type="number" step="1" id="carbohydrates" name="carbohydrates" class="form-control" placeholder="e.g. 45">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="calories">Calories</label>
+                                        <input type="number" step="1" id="calories" name="calories" class="form-control" placeholder="e.g. 520">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label" for="meal-notes">Notes (optional)</label>
+                                        <textarea id="meal-notes" name="meal_notes" class="form-control" rows="3" placeholder="Anything else to note..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="activity" role="tabpanel" aria-labelledby="activity-tab">
+                            <div class="">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="activity-date">Date <span class="text-danger">*</span></label>
+                                        <input type="date" id="activity-date" name="activity_date" class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="activity-type">Activity type <span class="text-danger">*</span></label>
+                                        <input type="text" id="activity-type" name="activity_type" class="form-control" placeholder="e.g. walking">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="duration">Duration (minutes) <span class="text-danger">*</span></label>
+                                        <input type="number" id="duration" name="duration" class="form-control" placeholder="e.g. 30">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="bp-systolic">Blood pressure systolic <span class="text-danger">*</span></label>
+                                        <input type="number" id="bp-systolic" name="bp_systolic" class="form-control" placeholder="e.g. 120" required min="50" max="300">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="alcohol-consumption">Alcohol consumption <span class="text-danger">*</span></label>
+                                        <input type="text" id="alcohol-consumption" name="alcohol_consumption" class="form-control" placeholder="e.g. none, 1 glass" required maxlength="100">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="screen-time">Screen time (minutes) <span class="text-danger">*</span></label>
+                                        <input type="number" id="screen-time" name="screen_time" class="form-control" placeholder="e.g. 120" required min="0" max="1440">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label" for="activity-notes">Notes (optional)</label>
+                                        <textarea id="activity-notes" name="activity_notes" class="form-control" rows="3" placeholder="Add activity context..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="sleep" role="tabpanel" aria-labelledby="sleep-tab">
+                            <div class="">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="sleep-date">Night of sleep <span class="text-danger">*</span></label>
+                                        <input type="date" id="sleep-date" name="sleep_date" class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="sleep-duration">Sleep duration (hours) <span class="text-danger">*</span></label>
+                                        <input type="number" step="0.1" id="sleep-duration" name="sleep_duration" class="form-control" placeholder="e.g. 7.5">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label" for="sleep-quality">Sleep quality <span class="text-danger">*</span></label>
+                                        <select id="sleep-quality" name="sleep_quality" class="form-select">
+                                            <option selected disabled>Select quality</option>
+                                            <option value="poor">Poor</option>
+                                            <option value="fair">Fair</option>
+                                            <option value="good">Good</option>
+                                            <option value="excellent">Excellent</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label" for="sleep-notes">Notes (optional)</label>
+                                        <textarea id="sleep-notes" name="sleep_notes" class="form-control" rows="3" placeholder="Anything else about your sleep..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 text-end">
+                        <button class="btn btn-primary" type="submit">Save Entry</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/track.js') }}"></script>
+{% endblock %}

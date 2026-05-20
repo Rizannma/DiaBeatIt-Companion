@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}User Profile | DiaBeatIt{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid mt-4 mb-4 pb-4">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card p-4">
+                <h2>User Profile</h2>
+                    <p class="text-muted small">Complete these fields so DiaBeatIt can use better prediction inputs.</p>
+
+                    <div id="alertContainer"></div>
+                    <form id="profileForm" method="POST" novalidate>
+                        {{ form.hidden_tag() }}
+
+                        <div class="section-header text-uppercase tracking-wider">Demographics</div>
+                        <div class="row g-4">
+                            <div class="col-md-6 col-lg-6">
+                                <label>Name</label>
+                                <input type="text" class="form-control" value="{{ user.subject_name }}" disabled tabindex="-1">
+                            </div>
+                            <div class="col-md-6 col-lg-6">
+                                <label>Age</label>
+                                <input type="text" class="form-control" value="{{ user.subject_age }}" disabled tabindex="-1">
+                            </div>
+                            <div class="col-md-6 col-lg-6">
+                                <label for="gender">Gender <span class="text-danger">*</span></label>
+                                {{ form.gender(id="gender", class="form-select", tabindex="1") }}
+                                <span class="error-text" id="error-gender"></span>
+                            </div>
+                        </div>
+
+                        <div class="section-header text-uppercase tracking-wider">Lifestyle & History</div>
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label for="family_history_diabetes">Family History of Diabetes <span class="text-danger">*</span></label>
+                                {{ form.family_history_diabetes(id="family_history_diabetes", class="form-select", tabindex="8") }}
+                                <span class="error-text" id="error-family_history_diabetes"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="hypertension_history">Hypertension History <span class="text-danger">*</span></label>
+                                {{ form.hypertension_history(id="hypertension_history", class="form-select", tabindex="9") }}
+                                <span class="error-text" id="error-hypertension_history"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="cardiovascular_history">Cardiovascular History <span class="text-danger">*</span></label>
+                                {{ form.cardiovascular_history(id="cardiovascular_history", class="form-select", tabindex="10") }}
+                                <span class="error-text" id="error-cardiovascular_history"></span>
+                            </div>
+                        </div>
+
+                        <div class="section-header text-uppercase tracking-wider">Physical Measurements</div>
+                        <div class="row g-4">
+                            <div class="col-md-6">
+                                <label for="height_cm">Height (cm) <span class="text-danger">*</span></label>
+                                {{ form.height_cm(id="height_cm", class="form-control", placeholder="e.g., 170", type="number", step="0.1", min="50", max="250", tabindex="11") }}
+                                <span class="error-text" id="error-height_cm"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="weight_kg">Weight (kg) <span class="text-danger">*</span></label>
+                                {{ form.weight_kg(id="weight_kg", class="form-control", placeholder="e.g., 70", type="number", step="0.1", min="20", max="300", tabindex="12") }}
+                                <span class="error-text" id="error-weight_kg"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="bmi">BMI (Body Mass Index)</label>
+                                {% if user.patient_profile and user.patient_profile.bmi %}
+                                    <input id="bmi" type="text" class="form-control" value="{{ user.patient_profile.bmi }} ({{ user.patient_profile.bmi_category }})" disabled readonly>
+                                {% else %}
+                                    <input id="bmi" type="text" class="form-control" value="Complete height and weight to calculate BMI" disabled readonly>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label for="hip_circumference">Hip Circumference (cm)</label>
+                                {{ form.hip_circumference(id="hip_circumference", class="form-control", placeholder="e.g., 95", type="number", step="0.1", min="50", max="150", tabindex="14") }}
+                                <span class="error-text" id="error-hip_circumference"></span>
+                            </div>
+                        </div>
+
+                        <div class="section-header text-uppercase tracking-wider">Medical & Lab Results</div>
+                        <div class="row g-4">
+                            <div class="col-md-4">
+                                <label for="hba1c">HbA1c (%)</label>
+                                {{ form.hba1c(id="hba1c", class="form-control", placeholder="e.g., 5.7", type="number", step="0.1", min="4", max="15", tabindex="15") }}
+                                <span class="error-text" id="error-hba1c"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="cholesterol_total">Total Cholesterol (mg/dL)</label>
+                                {{ form.cholesterol_total(id="cholesterol_total", class="form-control", placeholder="e.g., 200", type="number", step="1", min="100", max="400", tabindex="17") }}
+                                <span class="error-text" id="error-cholesterol_total"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="triglyceride">Triglyceride (mg/dL)</label>
+                                {{ form.triglyceride(id="triglyceride", class="form-control", placeholder="e.g., 150", type="number", step="1", min="50", max="500", tabindex="20") }}
+                                <span class="error-text" id="error-triglyceride"></span>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary" tabindex="11">Save Profile</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-lg-4 mt-4 mt-lg-0">
+                <div class="info-box">
+                    <h6 class="fw-bold"><i class="bi bi-info-circle me-2"></i>Instructions</h6>
+                    <p class="mb-2">The data entered here helps improve model predictions for Diabetes risk and recommendations.</p>
+                    <hr class="my-3 opacity-10">
+                    <p class="mb-0 small text-muted">If you are filling this for someone else, please ensure you enter the <strong>patient's</strong> details, not your own.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/profile.js') }}"></script>
+{% endblock %}

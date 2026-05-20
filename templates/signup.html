@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> Sign Up | DiaBeatIt</title>
+    <link rel="manifest" href="{{ url_for('manifest') }}">
+    <meta name="theme-color" content="#111827">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="DiaBeatIt">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icons/icon.svg') }}">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/static/css/signup.css">
+</head>
+<body>
+
+    <div class="container py-5">
+        <div class="auth-wrapper">
+            
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <i class="bi bi-drop-fill"></i>
+                </div>
+                <h3 class="fw-bold m-0">DiaBeatIt</h3>
+                <p class="text-muted small">Your AI Diabetes Companion</p>
+            </div>
+
+            <!-- Success Modal -->
+            <div class="modal" id="successModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0">
+                        <div class="modal-body text-center p-5">
+                            <div style="font-size: 4rem; color: #10b981; margin-bottom: 1rem;">
+                                <i class="bi bi-check-circle-fill"></i>
+                            </div>
+                            <h4 class="fw-bold mb-2">Account Created Successfully!</h4>
+                            <p class="text-muted mb-4">Welcome to DiaBeatIt. Your account has been created and you can now log in.</p>
+                            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Get Started</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-4">
+                <h2>Create Account</h2>
+                <p class="subtitle">Start your journey to better diabetes management</p>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                                {% if category == 'success' %}
+                                    <i class="bi bi-check-circle-fill"></i>
+                                {% else %}
+                                    <i class="bi bi-exclamation-triangle-fill"></i>
+                                {% endif %}
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <form id="signupForm" method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-2">
+                        <label for="full_name">Full Name</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            {{ form.full_name(class="form-control", id="full_name", placeholder="Surname, First Name Middle Name", autocomplete="name", required=True) }}
+                        </div>
+                        <span id="error-full_name" class="real-time-error"></span>
+                    </div>
+
+                    <div class="mb-2">
+                        <label for="email">Email Address</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                            {{ form.email(class="form-control", placeholder="you@example.com", id="email", autocomplete="email", required=True) }}
+                        </div>
+                        <span id="error-email" class="real-time-error"></span>
+                    </div>
+
+                    <div class="mb-2">
+                        <label for="age">Your Age</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-calendar3"></i></span>
+                            {{ form.age(class="form-control", placeholder="Must be 18 years or older", id="age", autocomplete="off", required=True) }}
+                        </div>
+                        <small class="text-muted" style="font-size: 0.7rem;">Minors must be registered by a parent or guardian</small>
+                        <span id="error-age" class="real-time-error"></span>
+                    </div>
+
+                    <div class="mb-2">
+                        <label for="account_for">Who is this account for?</label>
+                        {{ form.account_for(class="form-select", id="account_for", required=True) }}
+                        <span id="error-account_for" class="real-time-error"></span>
+                    </div>
+
+                    <div id="other_section" class="hidden-section">
+                        <div class="patient-info-container">
+                            <div class="d-flex align-items-center mb-3 text-primary">
+                                <i class="bi bi-person-plus-fill me-2"></i>
+                                <span class="fw-bold small">Patient Information</span>
+                            </div>
+
+                            <div class="mb-2">
+                                <label for="patient_name">Patient's Full Name</label>
+                                {{ form.patient_name(class="form-control", id="patient_name", placeholder="Surname, First Name Middle Name", autocomplete="off", required=True) }}
+                                <span id="error-patient_name" class="real-time-error"></span>
+                            </div>
+
+                            <div class="mb-2">
+                                <label for="patient_age">Patient's Age</label>
+                                {{ form.patient_age(class="form-control", id="patient_age", autocomplete="off", required=True) }}
+                                <span id="error-patient_age" class="real-time-error"></span>
+                            </div>
+
+                            <div class="mb-2">
+                                <label for="relationship">Your Relationship</label>
+                                {{ form.relationship(class="form-select", id="relationship", required=True) }}
+                                <span id="error-relationship" class="real-time-error"></span>
+                            </div>
+
+                            <div class="form-check mt-3 bg-white p-2 border rounded shadow-sm" style="margin-left: 0.5rem;">
+                                {{ form.consent(class="form-check-input ms-0 me-2", id="consent", required=True) }}
+                                <label class="form-check-label small" for="consent" style="font-weight: normal;">
+                                    I confirm legal authority for this patient.
+                                </label>
+                            </div>
+                            <span id="error-consent" class="real-time-error"></span>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <div class="mb-2">
+                        <label for="password_input">Password</label>
+                        <div class="input-group position-relative">
+                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            {{ form.password(class="form-control", placeholder="Minimum of 8 characters, mixed case, numbers, symbols", id="password_input", autocomplete="new-password", required=True) }}
+                            <button type="button" class="btn btn-light border-0 password-toggle" data-target="password_input" tabindex="-1">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        <div id="strength_meter" class="strength-meter"></div>
+                        <div class="d-flex justify-content-between">
+                            <small id="strength_text" class="text-muted" style="font-size: 0.7rem;"></small>
+                        </div>
+                        <span id="error-password_input" class="real-time-error"></span>
+                    </div>
+
+                    <div class="mb-2">
+                        <label for="confirm_password">Confirm Password</label>
+                        <div class="input-group position-relative">
+                            <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                            {{ form.confirm_password(class="form-control", id="confirm_password", autocomplete="new-password", required=True) }}
+                            <button type="button" class="btn btn-light border-0 password-toggle" data-target="confirm_password" tabindex="-1">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        <span id="error-confirm_password" class="real-time-error"></span>
+                    </div>
+
+                    <button type="button" id="previewBtn" class="btn btn-primary w-100 py-2">Sign Up</button>
+                
+                     <div class="text-center mt-4">
+                        <p class="text-muted">Already have an account? <a href="{{ url_for('auth.login') }}" class="text-danger fw-bold text-decoration-none">Sign in</a></p>
+                    </div>
+
+                            <div class="benefit-card mt-4 p-3 rounded-4">
+                                <h6 class="fw-bold mb-3" style="color: #166534;">What you'll get:</h6>
+                                <ul class="list-unstyled mb-0">
+                                    <li class="mb-2 small d-flex align-items-center">
+                                        <i class="bi bi-check-circle me-2"></i> AI-powered glucose forecasting
+                                    </li>
+                                    <li class="mb-2 small d-flex align-items-center">
+                                        <i class="bi bi-check-circle me-2"></i> Personalized health recommendations
+                                    </li>
+                                    <li class="mb-2 small d-flex align-items-center">
+                                        <i class="bi bi-check-circle me-2"></i> Comprehensive health reports
+                                    </li>
+                                    <li class="small d-flex align-items-center">
+                                        <i class="bi bi-check-circle me-2"></i> Share reports directly with your doctor
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Preview Modal -->
+                <div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content border-0 preview-modal-content">
+                            <div class="modal-header preview-modal-header">
+                                <div>
+                                    <h5 class="modal-title fw-bold mb-1" id="previewModalLabel">Review Before Creating Account</h5>
+                                    <p class="small text-muted mb-0">Confirm your details. You can still go back and edit.</p>
+                                </div>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+
+                            <div class="modal-body preview-modal-body">
+                                <section class="preview-block mb-3" aria-label="Personal Information">
+                                    <h6 class="preview-block-title">Personal Information</h6>
+                                    <div class="preview-grid">
+                                        <div class="preview-row"><span class="preview-label">Full Name</span><span class="preview-value" id="preview-name"></span></div>
+                                        <div class="preview-row"><span class="preview-label">Email</span><span class="preview-value" id="preview-email"></span></div>
+                                        <div class="preview-row"><span class="preview-label">Age</span><span class="preview-value" id="preview-age"></span></div>
+                                        <div class="preview-row"><span class="preview-label">Account For</span><span class="preview-value" id="preview-account"></span></div>
+                                    </div>
+                                </section>
+
+                                <section id="patient-info" class="preview-block" aria-label="Patient Information" style="display: none;">
+                                    <h6 class="preview-block-title">Patient Information</h6>
+                                    <div class="preview-grid">
+                                        <div class="preview-row"><span class="preview-label">Patient Name</span><span class="preview-value" id="preview-patient-name"></span></div>
+                                        <div class="preview-row"><span class="preview-label">Patient Age</span><span class="preview-value" id="preview-patient-age"></span></div>
+                                        <div class="preview-row"><span class="preview-label">Relationship</span><span class="preview-value" id="preview-relationship"></span></div>
+                                    </div>
+                                </section>
+                            </div>
+
+                            <div class="modal-footer preview-modal-footer">
+                                <button type="button" class="btn btn-secondary preview-action-btn" data-bs-dismiss="modal">Edit Details</button>
+                                <button type="button" class="btn btn-primary preview-action-btn" id="confirmSubmit">Confirm</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/signup.js"></script>
+<script src="{{ url_for('static', filename='js/pwa-register.js') }}"></script>
+
+</body>
+</html>

@@ -1,0 +1,78 @@
+/* Profile page specific styles */
+h2 {
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.info-box {
+    background-color: #f0fdf4;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    border: 1px solid #dcfce7;
+    font-size: 0.95rem;
+}
+
+.info-box h6 {
+    color: #166534;
+}
+
+.info-box i {
+    color: #167a5f;
+}
+
+.section-header {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    margin: 2rem 0 1rem;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #eee;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(120%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+.alert-fade-out {
+    animation: fadeOut 0.5s ease-out forwards;
+}
+
+/* Form validation */
+.invalid-field {
+    border-color: var(--error-red) !important;
+    background-color: #fff5f5;
+}
+
+.invalid-field:focus {
+    border-color: var(--error-red) !important;
+    box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+.error-text {
+    color: var(--error-red);
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+    display: block;
+    min-height: 1rem;
+}
+
+.text-muted.text-decoration-none:hover {
+    color: #111827 !important;
+    transition: color 0.2s ease;
+}

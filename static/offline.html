@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#111827">
+  <title>DiaBeatIt | Offline</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #fdf2f8;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --accent: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 20% 20%, #ffe4ea, var(--bg));
+      color: var(--text);
+      padding: 24px;
+    }
+
+    .card {
+      width: min(560px, 100%);
+      background: var(--card);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 12px 40px rgba(17, 24, 39, 0.08);
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 1.4rem;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 14px;
+      border-radius: 16px;
+      background: linear-gradient(145deg, #ff1744, #b20000);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .hint {
+      display: inline-block;
+      margin-top: 18px;
+      color: var(--accent);
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="card" role="main" aria-live="polite">
+    <div class="icon" aria-hidden="true">DB</div>
+    <h1>You're offline</h1>
+    <p>DiaBeatIt cannot load new data right now. Reconnect to continue syncing your latest health entries and insights.</p>
+    <span class="hint">Tip: reopen the app when your connection is back.</span>
+  </main>
+</body>
+</html>
