@@ -2,41 +2,104 @@ import os
 import pickle
 import numpy as np
 import logging
+import threading
 from datetime import datetime, timedelta
 from flask import has_request_context, session
 from sqlalchemy import func
 from huggingface_hub import hf_hub_download
+import onnxruntime as ort
 from models import db, User, PatientProfile, GlucoseEntry, ActivityEntry, SleepEntry, MealEntry
 from push_service import send_high_glucose_alert
 
 logger = logging.getLogger(__name__)
-HF_HUB_REPO = os.environ.get('HF_HUB_REPO', 'YOUR_HF_USERNAME/YOUR_MODEL_REPO')
+HF_HUB_REPO = os.environ.get('HF_HUB_REPO', 'stella001228/diabeatit-models')
+HF_HUB_REVISION = os.environ.get('HF_HUB_REVISION', 'main')
+HF_HUB_TOKEN = os.environ.get('HF_HUB_TOKEN') or os.environ.get('HF_TOKEN') or os.environ.get('HUGGINGFACE_HUB_TOKEN')
 
-risk_model = None
-glucose_model = None
-scaler_class = None
-scaler_reg = None
+# Thread-safe singleton model cache: (risk_session, glucose_session, scaler_class, scaler_reg)
+_model_lock = threading.Lock()
+_models_cache = None
 
 
-def _download_and_load_model(filename):
-    repo_id = HF_HUB_REPO
-    if not repo_id:
+def _download_hf_file(filename):
+    if not HF_HUB_REPO:
         raise RuntimeError('HF_HUB_REPO environment variable is not set')
 
-    model_path = hf_hub_download(repo_id=repo_id, filename=filename)
-    with open(model_path, 'rb') as f:
-        return pickle.load(f)
+    return hf_hub_download(
+        repo_id=HF_HUB_REPO,
+        filename=filename,
+        revision=HF_HUB_REVISION,
+        token=HF_HUB_TOKEN,
+    )
 
 
-# Load models and scalers once at startup
-try:
-    risk_model = _download_and_load_model('risk_model.pkl')
-    glucose_model = _download_and_load_model('glucose_model.pkl')
-    scaler_class = _download_and_load_model('scaler_class.pkl')
-    scaler_reg = _download_and_load_model('scaler_reg.pkl')
-    logger.info('Model artifacts loaded from Hugging Face Hub successfully.')
-except Exception as e:
-    logger.warning('Warning: Failed to load model artifacts from Hugging Face Hub. %s', e, exc_info=True)
+def load_onnx_model(filename):
+    try:
+        model_path = _download_hf_file(filename)
+        session = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
+        logger.info('[Prediction] Loaded ONNX model %s from Hugging Face.', filename)
+        return session
+    except Exception as e:
+        logger.warning('[Prediction] Failed to load ONNX model %s: %s', filename, e, exc_info=True)
+        return None
+
+
+def load_scaler(filename):
+    try:
+        file_path = _download_hf_file(filename)
+        with open(file_path, 'rb') as f:
+            scaler = pickle.load(f)
+        logger.info('[Prediction] Loaded scaler %s from Hugging Face.', filename)
+        return scaler
+    except Exception as e:
+        logger.warning('[Prediction] Failed to load scaler %s: %s', filename, e, exc_info=True)
+        return None
+
+
+def load_model():
+    """
+    Lazy-load all ONNX and scaler artifacts from Hugging Face Hub with thread-safe singleton caching.
+    
+    Uses double-checked locking pattern to ensure models are loaded exactly once, preventing:
+    - Multiple concurrent Hugging Face downloads
+    - Redundant ONNX session initialization
+    - Race conditions in multi-threaded Flask environments (Gunicorn, etc.)
+    
+    Returns:
+        tuple: (risk_session, glucose_session, scaler_class, scaler_reg)
+               May contain None values if loading failed; calling code must handle this.
+    """
+    global _models_cache
+
+    # First check without lock (minimizes lock contention on subsequent calls)
+    if _models_cache is not None:
+        logger.debug('[Prediction] Returning cached models')
+        return _models_cache
+
+    # Acquire lock for initialization
+    with _model_lock:
+        # Second check after lock (another thread may have initialized while waiting)
+        if _models_cache is not None:
+            logger.debug('[Prediction] Another thread initialized models; returning cached version')
+            return _models_cache
+
+        # Initialize models only once
+        logger.info('[Prediction] Initializing ONNX models and scalers (first request). Downloading from Hugging Face...')
+        
+        risk_session = load_onnx_model('risk_model.onnx')
+        glucose_session = load_onnx_model('glucose_model.onnx')
+        scaler_class = load_scaler('scaler_class.pkl')
+        scaler_reg = load_scaler('scaler_reg.pkl')
+
+        if any(obj is None for obj in (risk_session, glucose_session, scaler_class, scaler_reg)):
+            logger.error('[Prediction] Failed to load one or more model artifacts; predictions will be unavailable.')
+        else:
+            logger.info('[Prediction] Successfully initialized and cached all model artifacts.')
+
+        # Cache the models tuple (even if partial) to avoid repeated initialization attempts
+        _models_cache = (risk_session, glucose_session, scaler_class, scaler_reg)
+
+    return _models_cache
 
 
 
@@ -50,10 +113,23 @@ def _align_feature_count(features, expected_count):
 
     return features[:expected_count]
 
-def get_user_features(user_id):
-    """Fetch and calculate 17/20 features for a specific user"""
+def get_user_features(user_id, scaler_class, scaler_reg):
+    """
+    Fetch and calculate 17/20 features for a specific user.
+    
+    Args:
+        user_id: The user ID to fetch features for
+        scaler_class: The fitted scaler for risk classification
+        scaler_reg: The fitted scaler for glucose regression
+    
+    Returns:
+        tuple: (risk_features array, glucose_features array) ready for model input
+    """
+    if scaler_class is None or scaler_reg is None:
+        raise ValueError('Scaler dependencies are required for feature construction.')
+
     user = User.query.get(user_id)
-    profile = user.patient_profile
+    profile = user.patient_profile if user else None
 
     if not user or not profile:
         raise ValueError('User profile data is incomplete.')
@@ -147,23 +223,44 @@ def get_user_features(user_id):
 def predict_diabetes_metrics(user_id):
     """Execute the full flow: fetch -> calculate -> scale -> predict"""
     try:
-        risk_raw, glucose_raw = get_user_features(user_id)
+        risk_session, glucose_session, scaler_class, scaler_reg = load_model()
+
+        if any(obj is None for obj in (risk_session, glucose_session, scaler_class, scaler_reg)):
+            logger.error('[Prediction] Model artifacts are not available; returning 503 for user %s.', user_id)
+            return {
+                'status': 'error',
+                'message': 'Prediction service is temporarily unavailable.',
+                'http_status': 503,
+            }
+
+        risk_raw, glucose_raw = get_user_features(user_id, scaler_class, scaler_reg)
         
         # Scaling
-        risk_scaled = scaler_class.transform(risk_raw)
-        glucose_scaled = scaler_reg.transform(glucose_raw)
+        risk_scaled = scaler_class.transform(risk_raw).astype(np.float32)
+        glucose_scaled = scaler_reg.transform(glucose_raw).astype(np.float32)
         
-        # Prediction
-        risk_prob = risk_model.predict_proba(risk_scaled)[0][1] # Probability of Class 1
+        # Risk prediction using ONNX runtime
+        risk_input_name = risk_session.get_inputs()[0].name
+        risk_output = risk_session.run(None, {risk_input_name: risk_scaled})
+        risk_array = np.asarray(risk_output[-1])
+        if risk_array.ndim == 2 and risk_array.shape[1] > 1:
+            risk_prob = float(risk_array[0, 1])
+        else:
+            risk_prob = float(risk_array.ravel()[0])
+
         risk_label = "High Risk" if risk_prob > 0.5 else "Low Risk"
-        
-        future_glucose = glucose_model.predict(glucose_scaled)[0]
+
+        # Glucose prediction using ONNX runtime
+        glucose_input_name = glucose_session.get_inputs()[0].name
+        glucose_output = glucose_session.run(None, {glucose_input_name: glucose_scaled})
+        future_glucose = float(np.asarray(glucose_output[0]).ravel()[0])
 
         result = {
             "risk_score": round(float(risk_prob * 100), 2),
             "risk_label": risk_label,
             "predicted_next_glucose": round(float(future_glucose), 2),
-            "status": "success"
+            "status": "success",
+            "http_status": 200,
         }
 
         # Check for high glucose alert and send if threshold exceeded
@@ -192,4 +289,4 @@ def predict_diabetes_metrics(user_id):
         return result
     except Exception as e:
         logger.error('[Prediction] Error in predict_diabetes_metrics for user %s: %s', user_id, e, exc_info=True)
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": str(e), "http_status": 500}

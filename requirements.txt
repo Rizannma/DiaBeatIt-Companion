@@ -2,6 +2,7 @@ Flask
 Flask-SQLAlchemy
 flask-apscheduler
 psycopg2-binary
+pymysql
 Flask-WTF
 email-validator
 Flask-Login
